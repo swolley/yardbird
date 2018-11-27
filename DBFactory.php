@@ -1,10 +1,8 @@
 <?php
-namespace Extensions;
-
-use Extensions\HttpStatusCode as Http;
+namespace Database;
 
 class DBFactory {
-	public static function connect(string $type, string $host, int $port, string $user, string $pass, string $dbName, string $charset = 'UTF8') {
+	public function __invoke(string $type, string $host, int $port, string $user, string $pass, string $dbName, string $charset = 'UTF8') {
 		
 		try{
 			switch($type) {
@@ -17,7 +15,7 @@ class DBFactory {
 			}
 			
 		} catch(\Exception $e){
-			throw new \Exception($e, Http::INTERNAL_SERVER_ERROR);
+			throw new Exception(error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error', 500);
 		}
 	}
 }
