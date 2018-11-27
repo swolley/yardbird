@@ -1,17 +1,26 @@
 <?php
-namespace Api\Core;
+namespace Extensions;
 
 use \PDO;
 
-class PDOExtended extends PDO
-{
+class PDOExtended extends PDO {
     /**
      * opens connection with db dureing object creation and set attributes depending on main configurations
+     * @param   string  $type           db driver
+     * @param   string  $host           db host
+     * @param   int     $port           host port
+     * @param   string  $user           username
+     * @param   string  $pass           password
+     * @param   string  $dbName         database name
+     * @param   string  $charset        charset
      */
-    public function __construct()
-    {
+    public function __construct(string $type, string $host, int $port, string $user, string $pass, string $dbName, string $charset = 'UTF8') {
+        if(!in_array($type, PDO::getAvailableDrivers())){
+            throw "No database driver found";
+        }
+
         $init_arr = array(\PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone = '+00:00'");
-        parent::__construct(DB_TYPE . ':host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET, DB_USER, DB_PASS, $init_arr);
+        parent::__construct("$type:host=$host;port=$port;dbname=$dbName;charset=$charset", $user, $pass, $init_arr);
         if (DEBUG_MODE) {
             parent::setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
@@ -24,8 +33,7 @@ class PDOExtended extends PDO
      * @param   int     $fetch_mode     (optional) PDO fetch mode. default = associative array
      * @return  mixed                   response array or error message
      */
-    public function select(string $query, $params = [], $fetch_mode = PDO::FETCH_ASSOC)
-    {
+    public function select(string $query, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC) {
         try {
             ksort($params);
             $st = $this->prepare($query);
@@ -35,8 +43,10 @@ class PDOExtended extends PDO
             $st->execute();
 
             return $st->fetchAll($fetch_mode);
-        } catch (Exception $e) {
-            return $e->getMessage();
+        } catch (\PDOException $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+        } catch (\Exception $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -47,15 +57,14 @@ class PDOExtended extends PDO
      * @param   boolean $ignore         performes an 'insert ignore' query
      * @return  mixed                   new row id or error message
      */
-    public function insert($table, $params, $ignore = false)
-    {
+    public function insert(string $table, array $params, bool $ignore = false) {
         try {
             ksort($params);
             $keys = implode(',', array_keys($params));
             $values = ':' . implode(',:', array_keys($params));
 
             $this->beginTransaction();
-            $st = $this->prepare("INSERT " . ($ignore ? "IGNORE " : "") . "INTO $table ($keys) VALUES ($values)");
+            $st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO $table ($keys) VALUES ($values)");
             foreach ($params as $key => $value) {
                 $st->bindValue(":$key", $value);
             }
@@ -64,8 +73,10 @@ class PDOExtended extends PDO
             $this->commit();
 
             return $inserted_id;
-        } catch (Exception $e) {
-            return $e->getMessage();
+        } catch (\PDOException $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+        } catch (\Exception $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -76,8 +87,7 @@ class PDOExtended extends PDO
      * @param   string  $where          where condition. no placeholders permitted
      * @return  mixed                   correct query execution confirm as boolean or error message
      */
-    public function update($table, $params, $where)
-    {
+    public function update(string $table, array $params, string $where) {
         try {
             ksort($params);
             $values = '';
@@ -92,8 +102,10 @@ class PDOExtended extends PDO
             }
 
             return $st->execute();
-        } catch (Exception $e) {
-            return $e->getMessage();
+        } catch (\PDOException $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+        } catch (\Exception $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -104,8 +116,7 @@ class PDOExtended extends PDO
      * @param   array   $params         assoc array with placeholder's name and relative values for where condition
      * @return  mixed                   correct query execution confirm as boolean or error message
      */
-    public function delete($table, $where, $params)
-    {
+    public function delete(string $table, string $where, array $params) {
         try {
             ksort($params);
             $st = $this->prepare("DELETE FROM $table WHERE $where");
@@ -114,8 +125,10 @@ class PDOExtended extends PDO
             }
 
             return $st->execute();
-        } catch (Exception $e) {
-            return $e->getMessage();
+        } catch (\PDOException $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+        } catch (\Exception $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -126,8 +139,7 @@ class PDOExtended extends PDO
      * @param   int     $fetch_mode     (optional) PDO fetch mode. default = associative array
      * @return  mixed                   stored procedure result or error message
      */
-    public function procedure($name, $params = [], $fetch_mode = PDO::FETCH_ASSOC)
-    {
+    public function procedure(string $name, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC | PDO::FETCH_DECODE_JSON) {
         try {
             //ksort($params);
             $procedure_params = '';
@@ -143,8 +155,10 @@ class PDOExtended extends PDO
             $st->execute();
 
             return $st->fetchAll($fetch_mode);
-        } catch (Exception $e) {
-            return $e->getMessage();
+        } catch (\PDOException $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+        } catch (\Exception $e) {
+            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
         }
     }
 }
