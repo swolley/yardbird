@@ -1,5 +1,5 @@
 <?php
-namespace Extensions;
+namespace Database;
 
 use \MongoDB\Client as MongoDB;
 use \MongoDB\BSON as BSON;
@@ -19,7 +19,7 @@ class MongoExtended extends MongoDB {
     public function __construct(string $host, int $port, string $user, string $pass, string $dbName) {
         parent::__construct("mongodb://$user:$pass@$host:$port/$dbName");
         //TODO da verificare se esiste ancora MongoLog
-        if(DEBUG_MODE){
+        if(error_reporting() === E_ALL){
             MongoLog::setLevel(MongoLog::ALL);
             MongoLog::setModule(MongoLog::ALL);
         }
@@ -44,9 +44,9 @@ class MongoExtended extends MongoDB {
                 ->find($search, $options)
                 ->toArray();
         } catch (\MongoDB\Driver\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -66,9 +66,9 @@ class MongoExtended extends MongoDB {
                 ->insertOne($params)
                 ->getInsertedId()['oid'];
         } catch (\MongoDB\Driver\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -93,9 +93,9 @@ class MongoExtended extends MongoDB {
                 ->updateMany($where, [ '$set' => $params], ['upsert' => FALSE])
                 ->getModifiedCount();
         } catch (\MongoDB\Driver\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -116,9 +116,9 @@ class MongoExtended extends MongoDB {
 
             return $result->getDeletedCount() ? TRUE : FALSE;
         } catch (\MongoDB\Driver\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 }

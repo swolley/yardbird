@@ -1,5 +1,5 @@
 <?php
-namespace Extensions;
+namespace Database;
 
 use \PDO;
 
@@ -21,7 +21,7 @@ class PDOExtended extends PDO {
 
         $init_arr = array(\PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone = '+00:00'");
         parent::__construct("$type:host=$host;port=$port;dbname=$dbName;charset=$charset", $user, $pass, $init_arr);
-        if (DEBUG_MODE) {
+        if (error_reporting() === E_ALL) {
             parent::setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
     }
@@ -44,9 +44,9 @@ class PDOExtended extends PDO {
 
             return $st->fetchAll($fetch_mode);
         } catch (\PDOException $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -74,9 +74,9 @@ class PDOExtended extends PDO {
 
             return $inserted_id;
         } catch (\PDOException $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -103,9 +103,9 @@ class PDOExtended extends PDO {
 
             return $st->execute();
         } catch (\PDOException $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -126,9 +126,9 @@ class PDOExtended extends PDO {
 
             return $st->execute();
         } catch (\PDOException $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 
@@ -156,9 +156,9 @@ class PDOExtended extends PDO {
 
             return $st->fetchAll($fetch_mode);
         } catch (\PDOException $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
-            return DEBUG_MODE ? $e->getMessage() : 'Internal server error';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
 }
