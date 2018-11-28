@@ -139,7 +139,7 @@ class PDOExtended extends PDO {
      * @param   int     $fetch_mode     (optional) PDO fetch mode. default = associative array
      * @return  mixed                   stored procedure result or error message
      */
-    public function procedure(string $name, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC | PDO::FETCH_DECODE_JSON) {
+    public function procedure(string $name, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC) {
         try {
             //ksort($params);
             $procedure_params = '';
