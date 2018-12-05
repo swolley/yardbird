@@ -33,7 +33,7 @@ class PDOExtended extends PDO {
      * @param   int     $fetch_mode     (optional) PDO fetch mode. default = associative array
      * @return  mixed                   response array or error message
      */
-    public function select(string $query, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC) {
+    public function select(string $query, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC, int $fetchColumnNumber = 0) {
         try {
             ksort($params);
             $st = $this->prepare($query);
@@ -42,7 +42,7 @@ class PDOExtended extends PDO {
             }
             $st->execute();
 
-            return $st->fetchAll($fetch_mode);
+            return $fetch_mode === PDO::FETCH_COLUMN ? $st->fetchAll($fetch_mode, $fetchColumnNumber) : $st->fetchAll($fetch_mode);
         } catch (\PDOException $e) {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
@@ -139,7 +139,7 @@ class PDOExtended extends PDO {
      * @param   int     $fetch_mode     (optional) PDO fetch mode. default = associative array
      * @return  mixed                   stored procedure result or error message
      */
-    public function procedure(string $name, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC) {
+    public function procedure(string $name, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC, int $fetchColumnNumber = 0) {
         try {
             //ksort($params);
             $procedure_params = '';
@@ -154,7 +154,7 @@ class PDOExtended extends PDO {
             }
             $st->execute();
 
-            return $st->fetchAll($fetch_mode);
+            return $fetch_mode === PDO::FETCH_COLUMN ? $st->fetchAll($fetch_mode, $fetchColumnNumber) : $st->fetchAll($fetch_mode);
         } catch (\PDOException $e) {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
         } catch (\Exception $e) {
