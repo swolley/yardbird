@@ -1,0 +1,14 @@
+{
+    "name": "swolley/php-db-extended",
+    "type": "library",
+    "require": {
+        "mongodb/mongodb": "^1.4"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "swolley",
+            "email": "myentity@inwind.it"
+        }
+    ]
+}
