@@ -10,5 +10,10 @@
             "name": "swolley",
             "email": "myentity@inwind.it"
         }
-    ]
+    ],
+    "autoload": {
+        "psr-4": {
+            "Database\\": "/"
+        }
+    },
 }
