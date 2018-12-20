@@ -12,8 +12,8 @@
         }
     ],
     "autoload": {
-        "psr-0": {
-            "\\Swolley\\Database\\": "/"
+        "psr-4": {
+            "Swolley\\Database\\": "/"
         }
     }
 }
