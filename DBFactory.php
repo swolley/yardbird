@@ -1,5 +1,5 @@
 <?php
-namespace Database;
+namespace Swolley\Database;
 
 class DBFactory {
 	public function __invoke(string $type, string $host, int $port, string $user, string $pass, string $dbName, string $charset = 'UTF8') {

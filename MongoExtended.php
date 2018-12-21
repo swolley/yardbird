@@ -1,5 +1,5 @@
 <?php
-namespace Database;
+namespace Swolley\Database;
 
 use \MongoDB\Client as MongoDB;
 use \MongoDB\BSON as BSON;

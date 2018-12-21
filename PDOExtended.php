@@ -1,5 +1,5 @@
 <?php
-namespace Database;
+namespace Swolley\Database;
 
 use \PDO;
 
