@@ -44,7 +44,7 @@ class PDOExtended extends PDO {
 
             return $fetch_mode === PDO::FETCH_COLUMN ? $st->fetchAll($fetch_mode, $fetchColumnNumber) : $st->fetchAll($fetch_mode);
         } catch (\PDOException $e) {
-            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
         } catch (\Exception $e) {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
@@ -74,7 +74,7 @@ class PDOExtended extends PDO {
 
             return $inserted_id;
         } catch (\PDOException $e) {
-            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
         } catch (\Exception $e) {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
@@ -92,7 +92,7 @@ class PDOExtended extends PDO {
             ksort($params);
             $values = '';
             foreach ($params as $key => $value) {
-                $values .= "`$key`=:$keys";
+                $values .= "`$key`=:$key";
             }
             $field_details = rtrim($field_details, ',');
 
@@ -103,7 +103,7 @@ class PDOExtended extends PDO {
 
             return $st->execute();
         } catch (\PDOException $e) {
-            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
         } catch (\Exception $e) {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
@@ -126,7 +126,7 @@ class PDOExtended extends PDO {
 
             return $st->execute();
         } catch (\PDOException $e) {
-            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
         } catch (\Exception $e) {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
@@ -134,10 +134,11 @@ class PDOExtended extends PDO {
 
     /**
      * execute stored procedure
-     * @param   string  $name           stored procedure name
-     * @param   array   $params         (optional) assoc array with paramter's names and relative values
-     * @param   int     $fetch_mode     (optional) PDO fetch mode. default = associative array
-     * @return  mixed                   stored procedure result or error message
+     * @param   string  $name           	stored procedure name
+     * @param   array   $params         	(optional) assoc array with paramter's names and relative values
+     * @param   int     $fetch_mode     	(optional) PDO fetch mode. default = associative array
+	 * @param	int		$fetchColumnNumber	(optional) rows' column to fetch
+     * @return  mixed                   	stored procedure result or error message
      */
     public function procedure(string $name, array $params = [], int $fetch_mode = PDO::FETCH_ASSOC, int $fetchColumnNumber = 0) {
         try {
@@ -156,7 +157,7 @@ class PDOExtended extends PDO {
 
             return $fetch_mode === PDO::FETCH_COLUMN ? $st->fetchAll($fetch_mode, $fetchColumnNumber) : $st->fetchAll($fetch_mode);
         } catch (\PDOException $e) {
-            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while connecting to db';
+            return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
         } catch (\Exception $e) {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
