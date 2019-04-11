@@ -3,30 +3,41 @@ namespace Swolley\Database;
 
 use \PDO;
 
-class PDOExtended extends PDO {
-    /**
-     * opens connection with db dureing object creation and set attributes depending on main configurations
-     * @param   string  $type           db driver
-     * @param   string  $host           db host
-     * @param   int     $port           host port
-     * @param   string  $user           username
-     * @param   string  $pass           password
-     * @param   string  $dbName         database name
-     * @param   string  $charset        charset
-     */
-    public function __construct(string $type, string $host, int $port, string $user, string $pass, string $dbName, string $charset = 'UTF8') {
-        if(!in_array($type, PDO::getAvailableDrivers())){
-            throw "No database driver found";
+class PDOExtended extends PDO
+{
+	public function __construct(string $driver, string $host, int $port, string $user, string $password, string $database, ?string $sid, ?string $serviceName, string $charset)
+	{
+        if($driverType === 'oci'){
+            $tns = PDOExtended::getOracleTnsString($host, $port, $sid, $serviceName);
+            parent::__construct("{$driver}:dbname={$tns};charset={$charset}", $user, $password);
+        } else {
+            parent::__construct("$type:host=$host;port=$port;dbname=$database;charset=$charset", $user, $password, $init_arr);
         }
-
-        $init_arr = array(\PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone = '+00:00'");
-        parent::__construct("$type:host=$host;port=$port;dbname=$dbName;charset=$charset", $user, $pass, $init_arr);
+        
+		parent::setAttribute(PDO::ATTR_CASE,PDO::CASE_NATURAL);
         if (error_reporting() === E_ALL) {
-            parent::setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    		parent::setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
-    }
+	}
 
-    /**
+	private static function getOracleTnsString(string $host, int $port, ?string $sid, ?string $serviceName): string
+	{
+		$tns = "
+		(DESCRIPTION =
+			(ADDRESS_LIST =
+				(ADDRESS = (PROTOCOL = TCP)(HOST = {$host})(PORT = {$port}))
+			)
+			(CONNECT_DATA =";
+		if(!is_null($sid)) {
+			$tns .= "(SID = {$sid})";
+		}
+		if(!is_null($serviceName)) {
+			$tns .= "(SERVICE_NAME = {$serviceName})";
+		}
+		return $tns .= "))";
+	}
+
+	/**
      * execute select query
      * @param   string  	$query          	query text with placeholders
      * @param   array   	$params         	assoc array with placeholder's name and relative values
@@ -66,7 +77,7 @@ class PDOExtended extends PDO {
         try {
             ksort($params);
             $keys = implode(',', array_keys($params));
-            $values = ':' . implode(',:', array_keys($params));
+            $values = ':' . implode(', :', array_keys($params));
 
             $this->beginTransaction();
             $st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO $table ($keys) VALUES ($values)");
@@ -99,7 +110,7 @@ class PDOExtended extends PDO {
             foreach ($params as $key => $value) {
                 $values .= "`$key`=:$key";
             }
-            $field_details = rtrim($field_details, ',');
+            $field_details = rtrim($field_details, ', ');
 
             $st = $this->prepare("UPDATE $table SET $values WHERE $where");
             foreach ($params as $key => $value) {
@@ -126,7 +137,7 @@ class PDOExtended extends PDO {
             ksort($params);
             $st = $this->prepare("DELETE FROM $table WHERE $where");
             foreach ($params as $key => $value) {
-                $st->bindValue("$key", $value);
+                $st->bindValue(":$key", $value);
             }
 
             return $st->execute();
@@ -162,12 +173,13 @@ class PDOExtended extends PDO {
             }
             $procedure_out_params = rtrim($procedure_out_params, ', ');
 
+            $query = $this
             $st = $this->prepare(
-				"CALL $name("
+				"BEGIN $name("
 				. (count($inParams) > 0 ? $procedure_in_params : '')	//in params
 				. (count($inParams)> 0 && count($outParams) > 0 ? ', ' : '')	//separator between in and out params
 				. (count($outParams) > 0 ? $procedure_out_params : '')	//out params
-				.");"
+				."); END;"
 			);
             foreach ($inParams as $key => $value) {
                 $st->bindValue(":$key", $value);
@@ -194,4 +206,10 @@ class PDOExtended extends PDO {
             return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
         }
     }
+
+    private function parseProcedureSyntax(string $name, array $inParams = [], array $outParams =  []) 
+    {
+        $this->getAttribute(PDO::ATTR_DRIVER_NAME);
+    }
 }
+
