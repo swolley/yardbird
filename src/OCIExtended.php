@@ -51,7 +51,7 @@ final class OCIExtended implements IConnectable
 		return $params;
 	}
 
-	private static function constructConnectionString(array $params, array $init_Array = []): string
+	public static function constructConnectionString(array $params, array $init_Array = []): string
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
 

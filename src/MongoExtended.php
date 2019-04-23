@@ -39,7 +39,7 @@ class MongoExtended extends MongoDB
 		return $params;
 	}
 
-	protected static function constructConnectionString(array $params, array $init_arr = []): string
+	public static function constructConnectionString(array $params, array $init_arr = []): string
 	{
 		return "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}/{$params['dbName']}";
 	}

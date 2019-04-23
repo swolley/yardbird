@@ -66,7 +66,7 @@ final class PDOExtended extends PDO implements IConnectable
 		return $params;
 	}
 
-	protected static function constructConnectionString(array $params, array $init_arr = []): string
+	public static function constructConnectionString(array $params, array $init_arr = []): string
 	{
 		return $params['driver'] === 'oci' 
 			? self::getOciString($params)
