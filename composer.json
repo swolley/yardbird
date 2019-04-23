@@ -3,6 +3,9 @@
     "type": "library",
     "require": {
     },
+    "suggest": {
+        "mongodb/mongodb": "For MongoDB connection compatibility"
+    },
     "license": "MIT",
     "authors": [
         {
@@ -12,7 +15,7 @@
     ],
     "autoload": {
         "psr-4": {
-            "Swolley\\Database\\": "/"
+            "Swolley\\Database\\": "/src"
         }
     }
 }
