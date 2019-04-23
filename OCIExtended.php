@@ -1,7 +1,7 @@
 <?php
 namespace Swolley\Database;
 
-require_once 'IConnectable.php';
+//require_once 'IConnectable.php';
 
 class OCI
 {
@@ -12,7 +12,8 @@ class OCI
 }
 
 class OCIException extends \RuntimeException
-{ }
+{ 
+}
 
 final class OCIExtended implements IConnectable
 {
