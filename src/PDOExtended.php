@@ -3,7 +3,7 @@ namespace Swolley\Database;
 
 use \PDO;
 
-require_once 'IConnectable.php';
+//require_once 'IConnectable.php';
 
 final class PDOExtended extends PDO implements IConnectable
 {

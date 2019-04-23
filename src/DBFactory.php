@@ -1,8 +1,8 @@
 <?php
 namespace Swolley\Database;
 
-require_once "PDOExtended.php";
-require_once "OCIExtended.php";
+//require_once "PDOExtended.php";
+//require_once "OCIExtended.php";
 
 final class DBFactory {
 	public function __invoke(array $connectionParameters) {
