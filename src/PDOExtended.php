@@ -175,7 +175,7 @@ final class PDOExtended extends PDO implements IConnectable
 			foreach ($params as $key => $value) {
 				$values .= "`$key`=:$key";
 			}
-			$field_details = rtrim($field_details, ', ');
+			$field_details = rtrim($values, ', ');
 
 			$st = $this->prepare("UPDATE $table SET $values WHERE $where");
 			foreach ($params as $key => $value) {
