@@ -19,7 +19,7 @@ interface IConnectable
 	static function constructConnectionString(array $params, array $init_Array = []): string;
 
 	/**
-     * execute select query
+     * execute generic query
      * @param   string  	$query          	query text with placeholders
      * @param   array   	$params         	assoc array with placeholder's name and relative values
 	 * @param   int     	$fetchMode     		(optional) PDO fetch mode. default = associative array
@@ -27,7 +27,7 @@ interface IConnectable
 	 * @param	int|string	$fetchModePropsLateParams		(optional) fetch mode param to class contructor
      * @return  mixed							response array or error message
      */
-	function select(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
+	function query(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
 	
 	/**
      * execute insert query

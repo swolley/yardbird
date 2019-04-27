@@ -76,7 +76,7 @@ final class OCIExtended implements IConnectable
 		);
 	}
 
-	public function select(string $query, array $params = [], int $fetchMode = OCI::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function query(string $query, array $params = [], int $fetchMode = OCI::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		try {
 			ksort($params);

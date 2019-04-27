@@ -111,7 +111,7 @@ final class PDOExtended extends PDO implements IConnectable
 		return "oci:dbname={$tns};charset={$params['charset']}";	
 	}
 
-	public function select(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function query(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		try {
 			ksort($params);
