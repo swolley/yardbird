@@ -3,8 +3,6 @@ namespace Swolley\Database;
 
 use \PDO;
 
-//require_once 'IConnectable.php';
-
 final class PDOExtended extends PDO implements IConnectable
 {
 	/**
@@ -16,20 +14,20 @@ final class PDOExtended extends PDO implements IConnectable
 		parent::__construct(self::constructConnectionString($params), $params['user'], $params['password']);
 
 		if (error_reporting() === E_ALL) {
-			parent::setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+			parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
 		}
 	}
 
 	public static function validateParams($params): array
 	{
-		if (!in_array($params['driver'], PDO::getAvailableDrivers())) {
+		if (!in_array($params['driver'], self::getAvailableDrivers())) {
 			throw new \UnexpectedValueException("No {$params['driver']} driver available");
 		}
 
 		if (!isset($params['host'], $params['user'], $params['password'])) {
-			throw new BadMethodCallException("host, user, password are required");
+			throw new \BadMethodCallException("host, user, password are required");
 		}elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
-			throw new UnexpectedValueException("host, user, password can't be empty");
+			throw new \UnexpectedValueException("host, user, password can't be empty");
 		}
 
 		//default ports
@@ -56,7 +54,7 @@ final class PDOExtended extends PDO implements IConnectable
 		if($params['driver'] !== 'oci' && !isset($params['dbName'])) {
 			throw new \BadMethodCallException("dbName is required");
 		} elseif ($params['driver'] !== 'oci' && empty($params['dbName'])) {
-			throw new UnexpectedValueException("dbName can't be empty");
+			throw new \UnexpectedValueException("dbName can't be empty");
 		}
 		
 		if($params['driver'] === 'oci' && (!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
@@ -85,14 +83,14 @@ final class PDOExtended extends PDO implements IConnectable
 	/**
 	 * @param	array	$params	connection parameters
 	 * @return	string	connection string with tns for oci driver
-	 * @throws	BadMethodCallException	if missing parameters
+	 * @throws	\BadMethodCallException	if missing parameters
 	 */
 	private static function getOciString(array $params): string
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
 		
 		if(is_null($connect_data_name)) {
-			throw new BadMethodCallException("Missing paramters");
+			throw new \BadMethodCallException("Missing paramters");
 		}
 
 		$connect_data_value = $params[$connect_data_name];
@@ -111,7 +109,7 @@ final class PDOExtended extends PDO implements IConnectable
 		return "oci:dbname={$tns};charset={$params['charset']}";	
 	}
 
-	public function query(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function query(string $query, array $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		try {
 			ksort($params);
@@ -120,8 +118,8 @@ final class PDOExtended extends PDO implements IConnectable
 				$st->bindValue(":$key", $value);
 			}
 			$st->execute();
-			if (($fetchMode === PDO::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & PDO::FETCH_CLASS && is_string($fetchModeParam))) {
-				return $fetchMode & PDO::FETCH_PROPS_LATE
+			if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
+				return $fetchMode & self::FETCH_PROPS_LATE
 					? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
 					: $st->fetchAll($fetchMode, $fetchModeParam);
 			} else {
@@ -143,7 +141,7 @@ final class PDOExtended extends PDO implements IConnectable
 
 			$this->beginTransaction();
 
-			$driver = $this->getAttribute(PDO::ATTR_DRIVER_NAME);
+			$driver = $this->getAttribute(self::ATTR_DRIVER_NAME);
 			if($driver === 'mysql'){
 				$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO $table ($keys) VALUES ($values)");
 			} elseif($driver === 'oci') {
@@ -207,7 +205,7 @@ final class PDOExtended extends PDO implements IConnectable
 		}
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		try {
 			//input params
@@ -232,15 +230,15 @@ final class PDOExtended extends PDO implements IConnectable
 			$outResult = [];
 			foreach ($outParams as $value) {
 				$outResult[$value] = null;
-				$st->bindParam(":$value", $outResult[$value], PDO::PARAM_STR | PDO::PARAM_INPUT_OUTPUT, 4000);
+				$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, 4000);
 			}
 
 			$st->execute();
 
 			if (count($outParams) > 0) {
 				return $outResult;
-			} elseif (($fetchMode === PDO::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & PDO::FETCH_CLASS && is_string($fetchModeParam))) {
-				return $fetchMode & PDO::FETCH_PROPS_LATE
+			} elseif (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
+				return $fetchMode & self::FETCH_PROPS_LATE
 					? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
 					: $st->fetchAll($fetchMode, $fetchModeParam);
 			} else {
@@ -263,7 +261,7 @@ final class PDOExtended extends PDO implements IConnectable
 	{
 		$parameters_string = $in . (strlen($in) > 0 && strlen($out) > 0 ? ', ' : '') . $out;
 		$procedure_string = null;
-		switch($this->getAttribute(PDO::ATTR_DRIVER_NAME)) {
+		switch($this->getAttribute(self::ATTR_DRIVER_NAME)) {
 			case 'pgsql':
 			case 'mysql':
 				$procedure_string = "CALL ###name###(###params###);";

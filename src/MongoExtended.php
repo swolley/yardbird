@@ -14,12 +14,7 @@ class MongoExtended extends MongoDB
 	private $dbName;
 
 	/**
-	 * opens connection with db during object creation and set attributes depending on main configurations
-	 * @param   string  $host           db host
-	 * @param   int     $port           host port
-	 * @param   string  $user           username
-	 * @param   string  $pass           password
-	 * @param   string  $dbName         db name
+	 * @param	array	$params	connection parameters
 	 */
 	public function __construct(array $params)
 	{

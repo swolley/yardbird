@@ -28,9 +28,9 @@ final class OCIExtended implements IConnectable
 	public static function validateParams($params): array
 	{
 		if (!isset($params['host'], $params['user'], $params['password'])) {
-			throw new BadMethodCallException("host, user, password are required");
+			throw new \BadMethodCallException("host, user, password are required");
 		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
-			throw new UnexpectedValueException("host, user, password can't be empty");
+			throw new \UnexpectedValueException("host, user, password can't be empty");
 		}
 
 		//default ports
@@ -56,7 +56,7 @@ final class OCIExtended implements IConnectable
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
 
 		if (is_null($connect_data_name)) {
-			throw new BadMethodCallException("Missing paramters");
+			throw new \BadMethodCallException("Missing paramters");
 		}
 
 		$connect_data_value = $params[$connect_data_name];
@@ -83,7 +83,7 @@ final class OCIExtended implements IConnectable
 			$st = oci_parse($this->db, $query);
 			foreach ($params as $key => $value) {
 				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new Exception('Cannot bind parameter value');
+					throw new \Exception('Cannot bind parameter value');
 				}
 			}
 			if (!oci_execute($st)) {
@@ -123,12 +123,12 @@ final class OCIExtended implements IConnectable
 			$st = oci_parse($this->db, "BEGIN INSERT INTO $table ($keys) VALUES ($values); EXCEPTION WHEN dup_val_on_index THEN null; END; RETURNING RowId INTO :last_inserted_id");
 			foreach ($params as $key => $value) {
 				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new Exception('Cannot bind parameter value');
+					throw new \Exception('Cannot bind parameter value');
 				}
 			}
 
 			if (!oci_bind_by_name($st, ":last_inserted_id", $inserted_id, 4000)) {
-				throw new Exception('Cannot bind parameter value');
+				throw new \Exception('Cannot bind parameter value');
 			}
 
 			if (!oci_execute($st)) {
@@ -164,7 +164,7 @@ final class OCIExtended implements IConnectable
 			$st = oci_parse($this->db, "UPDATE $table SET $values WHERE $where");
 			foreach ($params as $key => $value) {
 				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new Exception('Cannot bind parameter value');
+					throw new \Exception('Cannot bind parameter value');
 				}
 			}
 
@@ -189,7 +189,7 @@ final class OCIExtended implements IConnectable
 			$st = oci_parse($this->db, "DELETE FROM $table WHERE $where");
 			foreach ($params as $key => $value) {
 				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new Exception('Cannot bind parameter value');
+					throw new \Exception('Cannot bind parameter value');
 				}
 			}
 
@@ -234,7 +234,7 @@ final class OCIExtended implements IConnectable
 			);
 			foreach ($inParams as $key => $value) {
 				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new Exception('Cannot bind parameter value');
+					throw new \Exception('Cannot bind parameter value');
 				}
 			}
 
@@ -242,7 +242,7 @@ final class OCIExtended implements IConnectable
 			foreach ($outParams as $value) {
 				$outResult[$value] = null;
 				if (!oci_bind_by_name($st, ":$key", $outResult[$value], 40000)) {
-					throw new Exception('Cannot bind parameter value');
+					throw new \Exception('Cannot bind parameter value');
 				}
 			}
 
