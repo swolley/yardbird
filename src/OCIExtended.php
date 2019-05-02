@@ -3,14 +3,6 @@ namespace Swolley\Database;
 
 //require_once 'IConnectable.php';
 
-class OCI
-{
-	const FETCH_COLUMN = 7;
-	const FETCH_CLASS = 8;
-	const FETCH_ASSOC = 2;
-	const FETCH_PROPS_LATE = 1048576;
-}
-
 class OCIException extends \RuntimeException
 { 
 }
@@ -76,8 +68,17 @@ final class OCIExtended implements IConnectable
 		);
 	}
 
-	public function query(string $query, array $params = [], int $fetchMode = OCI::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function query(string $query, $params = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
+		$paramsType = gettype($params);
+		if($paramsType !== 'array' && $paramsType !== 'object' ) {
+			throw new \UnexpectedValueException('$params can be only array or object');
+		}
+
+		if($paramsType === 'object') {
+			$params = (array) $params;
+		}
+
 		try {
 			ksort($params);
 			$st = oci_parse($this->db, $query);
@@ -92,11 +93,11 @@ final class OCIExtended implements IConnectable
 			}
 
 			$response = [];
-			if ($fetchMode === OCI::FETCH_COLUMN && is_int($fetchModeParam)) {
+			if ($fetchMode === BDFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
 				while ($row = oci_fetch_row($st)[$fetchModeParam] !== false) {
 					array_push($response, $row);
 				}
-			} elseif ($fetchMode & OCI::FETCH_CLASS && is_string($fetchModeParam)) {
+			} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
 				return new $fetchModeParam(...oci_fetch_assoc($st));
 			} else {
 				while ($row = oci_fetch_assoc($st) !== false) {
@@ -113,8 +114,17 @@ final class OCIExtended implements IConnectable
 		}
 	}
 
-	public function insert(string $table, array $params, bool $ignore = false)
+	public function insert(string $table, $params, bool $ignore = false)
 	{
+		$paramsType = gettype($params);
+		if($paramsType !== 'array' && $paramsType !== 'object' ) {
+			throw new \UnexpectedValueException('$params can be only array or object');
+		}
+
+		if($paramsType === 'object') {
+			$params = (array) $params;
+		}
+		
 		try {
 			ksort($params);
 			$keys = implode(',', array_keys($params));
@@ -207,7 +217,7 @@ final class OCIExtended implements IConnectable
 		}
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = OCI::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		try {
 			//input params
@@ -256,11 +266,11 @@ final class OCIExtended implements IConnectable
 			}
 
 			$response = [];
-			if ($fetchMode === OCI::FETCH_COLUMN && is_int($fetchModeParam)) {
+			if ($fetchMode === BDFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
 				while ($row = oci_fetch_row($st)[$fetchModeParam] !== false) {
 					array_push($response, $row);
 				}
-			} elseif ($fetchMode & OCI::FETCH_CLASS && is_string($fetchModeParam)) {
+			} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
 				return new $fetchModeParam(...oci_fetch_assoc($st));
 			} else {
 				while ($row = oci_fetch_assoc($st) !== false) {

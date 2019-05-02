@@ -8,6 +8,12 @@ use PHPUnit\Framework\MockObject\BadMethodCallException;
 
 final class DBFactory
 {
+	const FETCH_ASSOC = 2;
+	const FETCH_OBJ = 5;
+	const FETCH_COLUMN = 7;
+	const FETCH_CLASS = 8;
+	const GETCH_PROPS_LATE = 1048576;
+
 	public function __invoke(array $connectionParameters)
 	{
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) {
@@ -20,7 +26,7 @@ final class DBFactory
 
 			switch ($connectionParameters['driver']) {
 				case 'mongodb':
-					//return new MongoExtended($connectionParameters);
+					return new MongoExtended($connectionParameters);
 					break;
 				case 'oci8':
 					return new OCIExtended($connectionParameters);

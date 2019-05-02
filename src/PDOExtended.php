@@ -132,8 +132,17 @@ final class PDOExtended extends PDO implements IConnectable
 		}
 	}
 
-	public function insert(string $table, array $params, bool $ignore = false)
+	public function insert(string $table, $params, bool $ignore = false)
 	{
+		$paramsType = gettype($params);
+		if($paramsType !== 'array' && $paramsType !== 'object' ) {
+			throw new \UnexpectedValueException('$params can be only array or object');
+		}
+
+		if($paramsType === 'object') {
+			$params = (array) $params;
+		}
+
 		try {
 			ksort($params);
 			$keys = implode(',', array_keys($params));
@@ -165,8 +174,17 @@ final class PDOExtended extends PDO implements IConnectable
 		}
 	}
 
-	public function update(string $table, array $params, string $where): bool
+	public function update(string $table, $params, string $where): bool
 	{
+		$paramsType = gettype($params);
+		if($paramsType !== 'array' && $paramsType !== 'object' ) {
+			throw new \UnexpectedValueException('$params can be only array or object');
+		}
+
+		if($paramsType === 'object') {
+			$params = (array) $params;
+		}
+
 		try {
 			ksort($params);
 			$values = '';

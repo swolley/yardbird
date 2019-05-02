@@ -31,21 +31,21 @@ interface IConnectable
 	
 	/**
       * execute insert query
-      * @param   string  $table          table name
-      * @param   array   $params         assoc array with placeholder's name and relative values
-      * @param   boolean $ignore         performes an 'insert ignore' query
-      * @return  mixed                   new row id or error message
+      * @param   string  		$table      table name
+      * @param   array|bool		$params     assoc array with placeholder's name and relative values
+      * @param   boolean 		$ignore		performes an 'insert ignore' query
+      * @return  mixed                   	new row id or error message
       */
-	function insert(string $table, array $params, bool $ignore = false);
+	function insert(string $table, $params, bool $ignore = false);
 	
 	/**
       * execute update query. Where is required, no massive update permitted
-      * @param   string  $table          table name
-      * @param   array   $params         assoc array with placeholder's name and relative values
-      * @param   string  $where          where condition. no placeholders permitted
-      * @return  mixed                   correct query execution confirm as boolean or error message
+      * @param   string  		$table	    table name
+      * @param   array|bool		$params     assoc array with placeholder's name and relative values
+      * @param   string  		$where      where condition. no placeholders permitted
+      * @return  mixed                   	correct query execution confirm as boolean or error message
       */
-	function update(string $table, array $params, string $where): bool;
+	function update(string $table, $params, string $where): bool;
 	
 	/**
       * execute delete query. Where is required, no massive delete permitted
