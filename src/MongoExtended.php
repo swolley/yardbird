@@ -44,7 +44,7 @@ class MongoExtended extends MongoDB
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	public function query(string $query, array $params = []) {
-		return self::queryParser($query, $params);
+		return $this->queryParser($query, $params);
 	}
 
 	//function select(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
@@ -204,22 +204,22 @@ class MongoExtended extends MongoDB
 		}
 	}
 
-	private static function queryParser(string $query, array $params = []) {
-		$exploded = explode(' ', $query);
-		if(preg_match('/^select$/i', $exploded[0]) === 1) {
-			self::parseSelect($exploded);
-		}elseif(preg_match('/^insert$/i', $exploded[0]) === 1) {
-			self::parseInsert($exploded);
-		} elseif(preg_match('/^delete$/i', $exploded[0]) === 1) {
-			self::parseDelete($exploded);
-		} elseif(preg_match('/^delete$/i', $exploded[0]) === 1) {
-			self::parseUpdate($exploded);
+	private function queryParser(string $query, array $params = []) {
+		//$exploded = explode(' ', $query);
+		if(preg_match('/^select/i', $query) === 1) {
+			self::parseSelect($query, $params);
+		}elseif(preg_match('/^insert/i', $query) === 1) {
+			self::parseInsert($query, $params);
+		} elseif(preg_match('/^delete from/i', $query) === 1) {
+			self::parseDelete($query, $params);
+		} elseif(preg_match('/^update/i', $query) === 1) {
+			self::parseUpdate($query, $params);
 		} else {
 			throw new \UnexpectedValueException('queryParser is unable to convert query');
 		}
 	}
 
-	private static function parseSelect(array $query) {
+	private function parseSelect(string $query, array $params = []) {
 		/*
 		SELECT a,b FROM users	$db->users->find(array(), array("a" => 1, "b" => 1));
 		SELECT * FROM users WHERE age=33	$db->users->find(array("age" => 33));
@@ -242,65 +242,150 @@ class MongoExtended extends MongoDB
 		*/
 	}
 
-	private static function parseInsert(array $query) {
-		/* INSERT INTO USERS VALUES(1,1)	$db->users->insert(array("a" => 1, "b" => 1)); */
-		
-		if(preg_match('/^INTO$/i', $query[1]) === 0) {
-			throw new \UnexpectedValueException('INSERT keyword must be followed by INTO keyword');
+	private function parseInsert(string $query, array $params = []) {
+		//recognize ignore keyword
+		$ignore = false;
+		if(preg_match('/^(insert\s)(ignore\s)/i', $query) === 1) {
+			$ignore = true;
 		}
-
-		$table = trim($query[2], '`');
-
-		$index = 3;
-		if(substr($query[$index], 0, 1) !== '(') {
+		$query = rtrim(preg_replace('/^(insert\s)(ignore\s)?(into\s)/i', '', $query), ';');
+		
+		//splits main macro blocks (table, columns, values)
+		$matches = [];
+		preg_match_all('/^(`?\w+(?=\s*)`?\s?)(\([^(]*\)\s?)(values\s?)(\([^(]*\))$/i', $query, $matches);
+		$query = array_slice($matches, 1);
+		unset($matches);
+		
+		//set table name
+		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
+		if(preg_match('/^values/i', $query[0][0]) === 1) {
 			throw new \UnexpectedValueException('parseInsert needs to know columns\' names');
 		}
 
 		//list of columns'names
-		while(substr($query[$index], -1) !== ')') {
-			$index++;
+		$keys_list = preg_split('/,\s?/', preg_replace('/\(|\)/', '', array_shift($query)[0]));
+		if(count($keys_list) === 0) {
+			throw new \UnexpectedValueException('parseInsert needs to know columns\' names');
 		}
+		$keys_list = array_map(function($key){
+			return trim($key, '`');
+		}, $keys_list);
 		
-		$imploded_columns = preg_replace('/\(\)/', '', join("", array_slice($query, 3, $index - 3 + 1)));
-		$keys_list = array_map(function($el){
-			return preg_replace('/,`/', '', $el);
-		}, preg_split('/,/', $imploded_columns));
-		
-		if(preg_match('/values/i', $query[$index++]) === 0) {
+		//list of columns'values
+		if(preg_match('/^values/i', array_shift($query)[0]) === 0) {
 			throw new \UnexpectedValueException('columns\' list must be followed by VALUES keyword');
 		}
 
-		if(substr($query[$index], 0, 1) !== '(') {
-			throw new \UnexpectedValueException('parseInsert needs "(" after VALUES keyword');
+		$values_list = preg_split('/,\s?/', preg_replace('/\(|\)/', '', array_shift($query)[0]));
+		if(count($values_list) === 0) {
+			throw new \UnexpectedValueException('parseInsert needs to know columns\' values');
 		}
-
-		//list of columns'names
-		$valuesList = [];
-		while($query[$index] !== ')') {
-			if($query[$index] !== ',') {
-				$values_list[] = $query[$index];
-			}
-			$index++;
-		}
+		$values_list = array_map(function($value){
+			return $this->castValue($value);
+		}, $values_list);
 
 		if(count($keys_list) !== count($values_list)) {
-			throw new \Exception('Columns number must match values number');
+			throw new \Exception('Columns count must match values count');
 		}
 
+		//substitute params in array of values
+		foreach($params as $key => $value) {
+			if($index = array_search(':' . $key, $values_list)) {
+				$values_list[$index] = $value;
+			}
+		}
+
+		//compose array column/value
 		$params = array_combine ($keys_list, $values_list);
 
-		return $this->insert($table, $params);
+		return $this->insert($table, $params, $ignore);
 	}
 
-	private static function parseDelete(array $query) {
+	private function parseDelete(string $query, array $params = []) {
 		/* DELETE FROM users WHERE z="abc"	$db->users->remove(array("z" => "abc")); */
+
+		//splits main macro blocks (table, columns, values)
+		$query = rtrim(preg_replace('/^(delete from\s)/i', '', $query), ';');
+		$matches = [];
+		preg_match_all('/^(`?\w+(?=\s*)`?\s?)(where\s?)(.*)$/i', $query, $matches);
+		$query = array_slice($matches, 1);
+		unset($matches);
+
+		//set table name
+		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
+		if(preg_match('/^where/i', $query[0][0]) === 0) {
+			throw new \UnexpectedValueException('parseInsert needs to know columns\' names');
+		} else {
+			array_shift($query);
+		}
+
+		//where params
+		$where_params = [];
+		$query = explode(' ', $query[0][0]);
+		foreach($query as $element) {
+			$where_params[] = $this->parseOperators($element, $params);
+		}
+
+		echo var_dump($where_params);
 	}
 	
-	private static function parseUpdate(array $query) {
+	private function parseUpdate(string $query, array $params = []) {
 		/*
 		UPDATE users SET a=1 WHERE b='q'	$db->users->update(array("b" => "q"), array('$set' => array("a" => 1)));
 		UPDATE users SET a=a+2 WHERE b='q'	$db->users->update(array("b" => "q"), array('$inc' => array("a" => 2)));
 		*/
+	}
+
+	private function parseOperators(string $string, array $params) {
+		if(preg_match('/!?=|<=?|>=?/i', $string) === 1) {
+			$splitted = preg_split('/(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))/i', $string, null, PREG_SPLIT_DELIM_CAPTURE);
+			switch($splitted[1]) {
+				case '=': 
+					$operator = '$eq';
+					break;
+				case '!=': 
+				case '<>': 
+					$operator = '$ne';
+					break;
+				case '<': 
+					$operator = '$lt';
+					break;
+				case '<=': 
+					$operator = '$lte';
+					break;
+				case '>': 
+					$operator = '$gt';
+					break;
+				case '>=': 
+					$operator = '$gte';
+					break;
+				default:
+					throw new \UnexpectedValueException('Unrecognised operator');
+			}
+
+			$splitted[2] = $this->castValue($splitted[2]);
+			$trimmed = ltrim($splitted[2], ':');
+			if(isset($params[$trimmed])) {
+				$splitted[2] = $params[$trimmed];
+			}
+
+			return [ $splitted[0] => [ $operator => $splitted[2] ] ];
+		}
+		elseif(preg_match('/and|&&|or|\|\|/i', $string) === 1) {
+			return $string;
+		}
+	}
+
+	private function castValue($value) {
+		if(preg_match("/^'|\"\w+'|\"$/", $value)) {
+			return preg_replace("/'|\"/", '', $value);
+		} elseif(is_numeric($value)) {
+			return $value + 0;
+		} elseif(is_bool($value)) {
+			return (bool)$value;
+		} else {
+			return $value;
+		}
 	}
 
 	//unhandled queries
