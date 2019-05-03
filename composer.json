@@ -4,8 +4,6 @@
     "scripts": {
         "test": "SHELL_INTERACTIVE=1 phpunit --bootstrap vendor/autoload.php --colors=always --stop-on-failure ./tests/"
     },
-    "require": {
-    },
     "suggest": {
         "mongodb/mongodb": "For MongoDB connection compatibility"
     },

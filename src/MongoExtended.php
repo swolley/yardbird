@@ -320,12 +320,28 @@ class MongoExtended extends MongoDB
 		}
 
 		//where params
-		$where_params = [];
-		$query = explode(' ', $query[0][0]);
-		foreach($query as $element) {
-			$where_params[] = $this->parseOperators($element, $params);
+		$query = preg_split('/\s/', $query[0][0]);
+		for($i = 0; $i < count($query); $i++) {
+			if(strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
+				if(substr($query[$i], 0, 1) === '('){
+					$to_add = substr($query[$i], 1);
+					$second_part = array_slice($query, $i + 1);
+					$first_part = array_slice($query, 0, $i);
+					$first_part[] = '(';
+					$first_part[] = $to_add;
+					$query = array_merge($first_part, $second_part);
+				}elseif(substr($query[$i], -1, 1) === ')') {
+					$to_add = substr($query[$i], 1);
+					$second_part = array_slice($query, $i + 1);
+					$first_part = array_slice($query, 0, $i);
+					$first_part[] = ')';
+					$first_part[] = $to_add;
+					$query = array_merge($first_part, $second_part);
+				}
+			}
 		}
 
+		$where_params = $this->parseOperators($query, $params, 0, 0);
 		echo var_dump($where_params);
 	}
 	
@@ -336,44 +352,57 @@ class MongoExtended extends MongoDB
 		*/
 	}
 
-	private function parseOperators(string $string, array $params) {
-		if(preg_match('/!?=|<=?|>=?/i', $string) === 1) {
-			$splitted = preg_split('/(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))/i', $string, null, PREG_SPLIT_DELIM_CAPTURE);
-			switch($splitted[1]) {
-				case '=': 
-					$operator = '$eq';
-					break;
-				case '!=': 
-				case '<>': 
-					$operator = '$ne';
-					break;
-				case '<': 
-					$operator = '$lt';
-					break;
-				case '<=': 
-					$operator = '$lte';
-					break;
-				case '>': 
-					$operator = '$gt';
-					break;
-				case '>=': 
-					$operator = '$gte';
-					break;
-				default:
-					throw new \UnexpectedValueException('Unrecognised operator');
-			}
+	private function parseOperators(array $query, array $params, &$i = 0, &$nested_level = 0) {
+		$where_params = [];
 
-			$splitted[2] = $this->castValue($splitted[2]);
-			$trimmed = ltrim($splitted[2], ':');
-			if(isset($params[$trimmed])) {
-				$splitted[2] = $params[$trimmed];
-			}
+		for($i; $i < count($query); $i++) {
+			if(preg_match('/!?=|<=?|>=?/i', $query[$i]) === 1) {
+				$splitted = preg_split('/(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))/i', $query[$i], null, PREG_SPLIT_DELIM_CAPTURE);
+				switch($splitted[1]) {
+					case '=': 
+						$operator = '$eq';
+						break;
+					case '!=': 
+					case '<>': 
+						$operator = '$ne';
+						break;
+					case '<': 
+						$operator = '$lt';
+						break;
+					case '<=': 
+						$operator = '$lte';
+						break;
+					case '>': 
+						$operator = '$gt';
+						break;
+					case '>=': 
+						$operator = '$gte';
+						break;
+					default:
+						throw new \UnexpectedValueException('Unrecognised operator');
+				}
 
-			return [ $splitted[0] => [ $operator => $splitted[2] ] ];
+				$splitted[2] = $this->castValue($splitted[2]);
+				$trimmed = ltrim($splitted[2], ':');
+				if(isset($params[$trimmed])) {
+					$splitted[2] = $params[$trimmed];
+				}
+
+				$where_params[] = [ $splitted[0] => [ $operator => $splitted[2] ] ];
+			} elseif(preg_match('/and|&&|or|\|\|/i', $query[$i]) === 1) {
+				$where_params[] = $query[$i];
+			} elseif($query[$i] === '(') {
+				$where_params[] = $this->parseOperators($query, $params, ++$i, ++$nested_level);
+			} elseif($query[$i] === ')') {
+				$i++;
+				$nested_level--;
+				return $where_params;
+			} else {
+				throw new \UnexpectedValueException('Unexpected keyword ' . $query[$i]);
+			}
 		}
-		elseif(preg_match('/and|&&|or|\|\|/i', $string) === 1) {
-			return $string;
-		}
+
+		return $where_params;
 	}
 
 	private function castValue($value) {
