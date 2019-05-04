@@ -1,5 +1,5 @@
 <?php
-namespace Swolley\Database;
+namespace Swolley\Database\Utils;
 
 trait TraitUtils
 {

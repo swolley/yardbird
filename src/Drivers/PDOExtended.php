@@ -1,9 +1,14 @@
 <?php
-namespace Swolley\Database;
+namespace Swolley\Database\Drivers;
 
-use \PDO;
+use Swolley\Database\DBFactory;
+use Swolley\Database\Interfaces\IRelationalConnectable;
+use Swolley\Database\Utils\TraitUtils;
+use Swolley\Database\Exceptions\QueryException;
+use Swolley\Database\Exceptions\BadMethodCallException;
+use Swolley\Database\Exceptions\UnexpectedValueException;
 
-final class PDOExtended extends PDO implements IConnectable
+final class PDOExtended extends \PDO implements IRelationalConnectable
 {
 	use TraitUtils;
 
@@ -12,7 +17,7 @@ final class PDOExtended extends PDO implements IConnectable
 	 */
 	public function __construct(array $params)
 	{
-		$params = self::validateParams($params);
+		$params = self::validateConnectionParams($params);
 		parent::__construct(self::constructConnectionString($params), $params['user'], $params['password']);
 
 		if (error_reporting() === E_ALL) {
@@ -20,16 +25,16 @@ final class PDOExtended extends PDO implements IConnectable
 		}
 	}
 
-	public static function validateParams($params): array
+	public static function validateConnectionParams($params): array
 	{
 		if (!in_array($params['driver'], self::getAvailableDrivers())) {
-			throw new \UnexpectedValueException("No {$params['driver']} driver available");
+			throw new UnexpectedValueException("No {$params['driver']} driver available");
 		}
 
 		if (!isset($params['host'], $params['user'], $params['password'])) {
-			throw new \BadMethodCallException("host, user, password are required");
+			throw new BadMethodCallException("host, user, password are required");
 		}elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
-			throw new \UnexpectedValueException("host, user, password can't be empty");
+			throw new UnexpectedValueException("host, user, password can't be empty");
 		}
 
 		//default ports
@@ -54,13 +59,13 @@ final class PDOExtended extends PDO implements IConnectable
 
 		/////////////////////////////////////////////////////////////
 		if($params['driver'] !== 'oci' && !isset($params['dbName'])) {
-			throw new \BadMethodCallException("dbName is required");
+			throw new BadMethodCallException("dbName is required");
 		} elseif ($params['driver'] !== 'oci' && empty($params['dbName'])) {
-			throw new \UnexpectedValueException("dbName can't be empty");
+			throw new UnexpectedValueException("dbName can't be empty");
 		}
 		
 		if($params['driver'] === 'oci' && (!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
-			throw new \BadMethodCallException("sid or serviceName must be specified");
+			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
 		
 		return $params;
@@ -85,14 +90,14 @@ final class PDOExtended extends PDO implements IConnectable
 	/**
 	 * @param	array	$params	connection parameters
 	 * @return	string	connection string with tns for oci driver
-	 * @throws	\BadMethodCallException	if missing parameters
+	 * @throws	BadMethodCallException	if missing parameters
 	 */
 	private static function getOciString(array $params): string
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
 		
 		if(is_null($connect_data_name)) {
-			throw new \BadMethodCallException("Missing paramters");
+			throw new BadMethodCallException("Missing paramters");
 		}
 
 		$connect_data_value = $params[$connect_data_name];
@@ -111,7 +116,7 @@ final class PDOExtended extends PDO implements IConnectable
 		return "oci:dbname={$tns};charset={$params['charset']}";	
 	}
 
-	public function query(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$params = self::castParamsToArray($params);
 
@@ -128,9 +133,34 @@ final class PDOExtended extends PDO implements IConnectable
 				return $st->fetchAll($fetchMode);
 			}
 		} catch (\PDOException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
+		}
+	}
+
+	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	{
+		try {
+			$stringed_fields = join(', ', $fields);
+
+			ksort($where);
+			$values = '';
+			foreach ($where as $key => $value) {
+				$values .= "`$key`=:$key AND ";
+			}
+			$stringed_where = rtrim($values, 'AND ');
+
+			$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} WHERE {$stringed_where}");
+			self::bindParams($where, $st);
+			return $st->execute();
+			if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
+				return $fetchMode & self::FETCH_PROPS_LATE
+					? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
+					: $st->fetchAll($fetchMode, $fetchModeParam);
+			} else {
+				return $st->fetchAll($fetchMode);
+			}
+		} catch (\PDOException $e) {
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -169,9 +199,7 @@ final class PDOExtended extends PDO implements IConnectable
 
 			return $inserted_id;
 		} catch (\PDOException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -183,7 +211,7 @@ final class PDOExtended extends PDO implements IConnectable
 			ksort($params);
 			$values = '';
 			foreach ($params as $key => $value) {
-				$values .= "`$key`=:$key";
+				$values .= "`$key`=:$key, ";
 			}
 			$field_details = rtrim($values, ', ');
 
@@ -191,9 +219,7 @@ final class PDOExtended extends PDO implements IConnectable
 			self::bindParams($params, $st);
 			return $st->execute();
 		} catch (\PDOException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -205,9 +231,7 @@ final class PDOExtended extends PDO implements IConnectable
 			self::bindParams($params, $st);
 			return $st->execute();
 		} catch (\PDOException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -230,7 +254,8 @@ final class PDOExtended extends PDO implements IConnectable
 
 			$st = $this->prepare($this->constructProcedureString($name, $procedure_in_params, $procedure_out_params));
 			self::bindParams($inParams, $st);
-			$outResult = self::bindOutParams($outParams, $st);
+			$outResult = [];
+			self::bindOutParams($outParams, $st, $outResult);
 			$st->execute();
 
 			if (count($outParams) > 0) {
@@ -243,9 +268,7 @@ final class PDOExtended extends PDO implements IConnectable
 				return $st->fetchAll($fetchMode);
 			}
 		} catch (\PDOException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -268,7 +291,7 @@ final class PDOExtended extends PDO implements IConnectable
 				$procedure_string = "EXEC ###name### ###params###;";
 				break;
 			case 'oci':
-				$procedure_string = "BEGIN ###name### (###params###);";
+				$procedure_string = "BEGIN ###name### (###params###); END;";
 				break;
 			default:
 				$procedure_string = null;
@@ -281,20 +304,25 @@ final class PDOExtended extends PDO implements IConnectable
 		return str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string);
 	}
 
-	protected static function bindParams(array &$params, &$st = null)
+	public static function bindParams(array &$params, &$st = null)
 	{
 		foreach ($params as $key => $value) {
 			$st->bindValue(":$key", $value);
 		}
 	}
 
-	protected static function bindOutParams(array &$params, &$st = null): array
+	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000)
 	{
-		$outResult = [];
-		foreach ($params as $value) {
-			$outResult[$value] = null;
-			$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, 4000);
+		if(gettype($params) === 'array' && gettype($outResult) === 'array') {
+			foreach ($params as $value) {
+				$outResult[$value] = null;
+				$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
+			}	
+		} elseif(gettype($params) === 'string') {
+			$outResult = null;
+			$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
+		} else {
+			throw new BadMethodCallException('$params and $outResult must have same type');
 		}
-		return $outResult;
 	}
 }

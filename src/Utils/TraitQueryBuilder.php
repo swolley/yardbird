@@ -1,36 +1,28 @@
 <?php
-namespace Swolley\Database;
+namespace Swolley\Database\Utils;
 
-class QueryBuilder
+use MongoDB\Exception\BadMethodCallException;
+
+trait TraitQueryBuilder
 {
-	public function __invoke(string $query, array $params = [])
+	protected function createQuery(string $query, array $params = [])
 	{
 		if (preg_match('/^select/i', $query) === 1) {
-			return [
-				'type' => 'select',
-				'query' => self::parseSelect($query, $params)
-			];
+			return self::parseSelect($query, $params);
 		} elseif (preg_match('/^insert/i', $query) === 1) {
-			return [
-				'type' => 'insert',
-				'query' => self::parseInsert($query, $params)
-			];
+			return self::parseInsert($query, $params);
 		} elseif (preg_match('/^delete from/i', $query) === 1) {
-			return [
-				'type' => 'delete',
-				'query' => self::parseDelete($query, $params)
-			];
+			return self::parseDelete($query, $params);
 		} elseif (preg_match('/^update/i', $query) === 1) {
-			return [
-				'type' => 'update',
-				'query' => self::parseUpdate($query, $params)
-			];
+			return self::parseUpdate($query, $params);
+		} elseif(preg_match('/^call|exec|begin/i', $query) === 1) {
+			return self::parseProcedure($query, $params);
 		} else {
 			throw new \UnexpectedValueException('queryBuilder is unable to convert query');
 		}
 	}
 
-	private function parseInsert(string $query, array $params = [])
+	protected function parseInsert(string $query, array $params = [])
 	{
 		//recognize ignore keyword
 		$ignore = false;
@@ -89,13 +81,14 @@ class QueryBuilder
 
 		//query elements ready to be passed to driver function
 		return [
+			'type' => 'insert',
 			'table' => $table,
 			'params' => $params,
 			'ignore' => $ignore
 		];
 	}
 
-	private function parseDelete(string $query, array $params = [])
+	protected function parseDelete(string $query, array $params = [])
 	{
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(delete from\s)/i', '', $query), ';');
@@ -142,12 +135,13 @@ class QueryBuilder
 
 		//query elements ready to be passed to driver function
 		return [
+			'type' => 'delete',
 			'table' => $table,
 			'params' => $$final_nested
 		];
 	}
 
-	private function parseUpdate(string $query, array $params = [])
+	protected function parseUpdate(string $query, array $params = [])
 	{
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(update\s)/i', '', $query), ';');
@@ -211,13 +205,14 @@ class QueryBuilder
 
 		//query elements ready to be passed to driver function
 		return [
+			'type' => 'update',
 			'table' => $table,
 			'params' => $parsed_params,
 			'where' => $final_nested
 		];
 	}
 
-	private function parseSelect(string $query, array $params = [])
+	protected function parseSelect(string $query, array $params = [])
 	{
 		/*
 		SELECT a,b FROM users WHERE age=33 ORDER BY name	$db->users->find(array("age" => 33), array("a" => 1, "b" => 1))->sort(array("name" => 1));
@@ -305,13 +300,50 @@ class QueryBuilder
 		}
 
 		return [
+			'type' => $isDistinct ? 'command' : 'select',
 			'table' => $table,
 			'params' => $columns_list,
 			'options' => $final_nested
 		];
 	}
 
-	private function parseOperators(array &$query, array &$params, int &$i, int &$nested_level)
+	protected function parseProcedure(string $query, array $params = [])
+	{
+		$query = rtrim(preg_replace('/^(call|exec|begin)\s?/i', '', $query), ';');
+		$matches = [];
+		preg_match_all('/^(\w+\s?)(?>\(?)(.*)(?:;\s?end)?/i', $query, $matches);
+		$query = array_slice($matches, 1);
+		unset($matches);
+
+		//set procedure name
+		$procedure = preg_replace('/`|\s/', '', array_shift($query)[0]);
+		$parameters_list = preg_replace('/(\)|;).*/', '', array_shift($query)[0]);
+		$parameters_list = preg_split('/,\s?/', $parameters_list);
+		
+		foreach ($parameters_list as $key => $value) {
+			//checks if every placeholder has a value in params
+			if(strpos($value, ':') === 0) {
+				$key = ltrim($value, ':');
+				if(!array_key_exists($key, $params)) {
+					throw new BadMethodCallException("Missing correscponding value to bind in params array");
+				}
+			} else {
+				//if is not a placeholder create new element in params array with value found in query
+				$first_part = array_slice($params, 0, $key);
+				$second_part = array_slice($params, $key + 1);
+				$first_part['param' . ($key + 1)] = $this->castValue($value);
+				$params = array_merge($first_part, $second_part);
+			}
+		}
+
+		return [
+			'type' => 'procedure',
+			'name' => $procedure,
+			'params' => $params
+		];
+	}
+
+	protected function parseOperators(array &$query, array &$params, int &$i, int &$nested_level)
 	{
 		$where_params = [];
 		while ($i < count($query)) {
@@ -367,7 +399,7 @@ class QueryBuilder
 		return $where_params;
 	}
 
-	private function groupLogicalOperators(array $query)
+	protected function groupLogicalOperators(array $query)
 	{
 		$nested_group = [];
 		$i = 0;
@@ -398,7 +430,7 @@ class QueryBuilder
 		return $nested_group;
 	}
 
-	private function castValue($value)
+	protected function castValue($value)
 	{
 		if (preg_match("/^'|\"\w+'|\"$/", $value)) {
 			return preg_replace("/'|\"/", '', $value);

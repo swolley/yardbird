@@ -1,6 +1,14 @@
 <?php
 namespace Swolley\Database;
 
+use Swolley\Database\Interfaces\IConnectable;
+use Swolley\Database\Drivers\MongoExtended;
+use Swolley\Database\Drivers\OCIExtended;
+use Swolley\Database\Drivers\PDOExtended;
+use Swolley\Database\Exceptions\QueryException;
+use Swolley\Database\Exceptions\BadMethodCallException;
+use Swolley\Database\Exceptions\UnexpectedValueException;
+
 final class DBFactory
 {
 	const FETCH_ASSOC = 2;
@@ -12,32 +20,29 @@ final class DBFactory
 	public function __invoke(array $connectionParameters)
 	{
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) {
-			throw new \BadMethodCallException("Connection parameters are required");
+			throw new BadMethodCallException("Connection parameters are required");
 		}
-		try {
-			if (!self::checkExtension($connectionParameters['driver'])) {
-				throw new \Exception('Extension not supported with current php configuration', 500);
-			}
+			
+		if (!self::checkExtension($connectionParameters['driver'])) {
+			throw new \Exception('Extension not supported with current php configuration', 500);
+		}
 
-			switch ($connectionParameters['driver']) {
-				case 'mongodb':
-					return new MongoExtended($connectionParameters);
-					break;
-				case 'oci8':
-					return new OCIExtended($connectionParameters);
-				default:
-					//pdo handles unsupported classes case
-					return new PDOExtended($connectionParameters);
-			}
-		} catch (\Exception $e) {
-			throw new \Exception(error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error', 500);
+		switch ($connectionParameters['driver']) {
+			case 'mongodb':
+				return new MongoExtended($connectionParameters);
+				break;
+			case 'oci8':
+				return new OCIExtended($connectionParameters);
+			default:
+				//pdo handles unsupported classes case
+				return new PDOExtended($connectionParameters);
 		}
 	}
 
 	private static function checkExtension(string $driver): bool
 	{
 		if (empty($driver)) {
-			throw new \BadMethodCallException('No driver specified');
+			throw new BadMethodCallException('No driver specified');
 		}
 
 		$extension_name = null;

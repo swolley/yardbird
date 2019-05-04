@@ -1,19 +1,25 @@
 <?php
-namespace Swolley\Database;
+namespace Swolley\Database\Drivers;
 
-use
-	\MongoDB\Client as MongoDB,
-	\MongoDB\BSON as BSON,
-	\MongoDB\Driver\Command as MongoCmd,
-	\MongoDB\BSON\Javascript as MongoJs,
-	\MongoDB\Driver\Exception as MongoException,
-	\MongoLog;
-use MongoDB\Exception\BadMethodCallException;
-use MongoDB\Exception\UnexpectedValueException;
+use Swolley\Database\DBFactory;
+use Swolley\Database\Interfaces\IConnectable;
+use Swolley\Database\Utils\TraitUtils;
+use Swolley\Database\Utils\TraitQueryBuilder;
+use Swolley\Database\Exceptions\QueryException;
+use Swolley\Database\Exceptions\BadMethodCallException;
+use Swolley\Database\Exceptions\UnexpectedValueException;
+use	MongoDB\Client as MongoDB;
+use MongoDB\BSON as BSON;
+use MongoDB\Driver\Command as MongoCmd;
+use MongoDB\Driver\Manager as MongoManager;
+use MongoDB\BSON\Javascript as MongoJs;
+use MongoDB\Driver\Exception as MongoException;
+use MongoLog;
 
 class MongoExtended extends MongoDB
 {
 	use TraitUtils;
+	use TraitQueryBuilder;
 
 	private $dbName;
 
@@ -22,12 +28,14 @@ class MongoExtended extends MongoDB
 	 */
 	public function __construct(array $params)
 	{
-		$params = self::validateParams($params);
-		parent::__construct(self::constructConnectionString($params));
+		$params = self::validateConnectionParams($params);
+		parent::__construct(self::constructConnectionString($params), [
+			'authSource' => 'admin',
+		]);
 		$this->dbName = $params['dbName'];
 	}
 
-	public static function validateParams($params): array
+	public static function validateConnectionParams($params): array
 	{
 		//string $host, int $port, string $user, string $pass, string $dbName
 		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) {
@@ -41,33 +49,65 @@ class MongoExtended extends MongoDB
 
 	public static function constructConnectionString(array $params, array $init_arr = []): string
 	{
-		return "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}/{$params['dbName']}";
+		return "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}";
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	public function query(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$params = self::castParamsToArray($params);
-		$query = (new QueryBuilder)($query, $params);
+		$query = $this->createQuery($query, $params);
 
 		switch($query['type']) {
+			case 'command':
+				return $this->command($query['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+				break;
 			case 'select':
-				return $this->select($query['query']['table'], $query['query']['params'], $query['query']['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+				return $this->select($query['table'], $query['params'], $query['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'insert':
-				return $this->insert($query['query']['table'], $query['query']['params'], $query['query']['ignore']);
+				return $this->insert($query['table'], $query['params'], $query['ignore']);
 				break;
 			case 'update':
-				return $this->update($query['query']['table'], $query['query']['params'], $query['query']['where']);
+				return $this->update($query['table'], $query['params'], $query['where']);
 				break;
 			case 'delete':	
-				return $this->delete($query['query']['table'], $query['query']['params']);
+				return $this->delete($query['table'], $query['params']);
+				break;
+			case 'procedure':	
+				return $this->procedure($query['name'], $query['params']);
 				break;
 		}
 	}
 
+	public function command(array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	{
+		//FIXME also options needs to be binded
+
+		try {
+			$response = $this->db->command($options);
+			switch ($fetchMode) {
+				case DBFactory::FETCH_ASSOC:
+					$response->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
+					break;
+				case DBFactory::FETCH_OBJ:
+					$response->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
+					break;
+					//case DBFactory::FETCH_CLASS:
+					//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
+					//	break;
+				default:
+					throw new MongoException\CommandException('Can fetch only Object or Associative Array');
+			}
+
+			return $response->toArray();
+		} catch (MongoException $e) {
+			throw new QueryException($e->getMessage(), $e->getCode());
+		}
+	}
+
 	//function select(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
-	public function select($collection, array $search = [], array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function select(string $collection, array $search = [], array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		try {
 			self::bindParams($search);
@@ -76,7 +116,7 @@ class MongoExtended extends MongoDB
 				$param = filter_var($param);
 			}*/
 
-			$response = array_key_exists('distinct', $options) ? $this->db->command($options) : $this->{$this->dbName}->{$collection}->find($search, $options);
+			$response = $this->{$this->dbName}->{$collection}->find($search, $options);
 						
 			switch ($fetchMode) {
 				case DBFactory::FETCH_ASSOC:
@@ -98,9 +138,7 @@ class MongoExtended extends MongoDB
 				return $response->toArray();
 			}
 		} catch (MongoException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -119,9 +157,7 @@ class MongoExtended extends MongoDB
 			$response = $this->{$this->dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
 			return $response->getInsertedId()['oid'];
 		} catch (MongoException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -143,9 +179,7 @@ class MongoExtended extends MongoDB
 			$response = $this->{$this->dbName}->{$collection}->updateMany($where, ['$set' => $params], ['upsert' => FALSE]);
 			return $response->getModifiedCount();
 		} catch (MongoException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -163,9 +197,7 @@ class MongoExtended extends MongoDB
 			$response = $this->{$this->dbName}->{$collection}->deleteMany($where);
 			return $response->getDeletedCount() ? TRUE : FALSE;
 		} catch (MongoException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
@@ -175,25 +207,35 @@ class MongoExtended extends MongoDB
 	 * @param   array   $params         (optional) assoc array with paramter's names and relative values
 	 * @return  mixed                   stored procedure result or error message
 	 */
-	public function procedure(string $name, array $params = [])
+	public function procedure(string $name, array $inParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
-		//TODO to be tested
 		try {
-			foreach ($params as &$param) {
-				$param = filter_var($param);
+			self::bindParams($inParams);
+
+			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($inParams)) . ');');
+			$command = new MongoCmd(['eval' => $jscode]);
+			$response = $this->getManager()->executeCommand($this->dbName, $command);
+			switch ($fetchMode) {
+				case DBFactory::FETCH_ASSOC:
+					$response->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
+					break;
+				case DBFactory::FETCH_OBJ:
+					$response->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
+					break;
+					//case DBFactory::FETCH_CLASS:
+					//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
+					//	break;
+				default:
+					throw new MongoException\CommandException('Can fetch only Object or Associative Array');
 			}
 
-			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($params)) . ');');
-			$command = new MongoCmd(['eval' => $jscode]);
-			return $this->executeCommand($this->dbName, $command);
+			return $response->toArray();
 		} catch (MongoException $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
-		} catch (\Exception $e) {
-			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	protected static function bindParams(array &$params, &$st = null)
+	public static function bindParams(array &$params, &$st = null)
 	{
 		foreach ($params as &$param) {
 			$param = filter_var($param);
