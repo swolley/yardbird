@@ -1,11 +1,6 @@
 <?php
 namespace Swolley\Database;
 
-use PHPUnit\Framework\MockObject\BadMethodCallException;
-
-//require_once "PDOExtended.php";
-//require_once "OCIExtended.php";
-
 final class DBFactory
 {
 	const FETCH_ASSOC = 2;

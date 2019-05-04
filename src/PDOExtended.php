@@ -5,6 +5,8 @@ use \PDO;
 
 final class PDOExtended extends PDO implements IConnectable
 {
+	use TraitUtils;
+
 	/**
 	 * @param	array	$params	connection parameters
 	 */
@@ -109,14 +111,14 @@ final class PDOExtended extends PDO implements IConnectable
 		return "oci:dbname={$tns};charset={$params['charset']}";	
 	}
 
-	public function query(string $query, array $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function query(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
+		$params = self::castParamsToArray($params);
+
 		try {
 			ksort($params);
 			$st = $this->prepare($query);
-			foreach ($params as $key => $value) {
-				$st->bindValue(":$key", $value);
-			}
+			self::bindParams($params, $st);
 			$st->execute();
 			if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
 				return $fetchMode & self::FETCH_PROPS_LATE
@@ -134,14 +136,7 @@ final class PDOExtended extends PDO implements IConnectable
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$paramsType = gettype($params);
-		if($paramsType !== 'array' && $paramsType !== 'object' ) {
-			throw new \UnexpectedValueException('$params can be only array or object');
-		}
-
-		if($paramsType === 'object') {
-			$params = (array) $params;
-		}
+		$params = self::castParamsToArray($params);
 
 		try {
 			ksort($params);
@@ -151,17 +146,23 @@ final class PDOExtended extends PDO implements IConnectable
 			$this->beginTransaction();
 
 			$driver = $this->getAttribute(self::ATTR_DRIVER_NAME);
-			if($driver === 'mysql'){
-				$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO $table ($keys) VALUES ($values)");
-			} elseif($driver === 'oci') {
-				$st = $this->prepare("BEGIN INSERT INTO $table ($keys) VALUES ($values); EXCEPTION WHEN dup_val_on_index THEN null; END;");
+			$st = null;
+			switch($driver) {
+				case 'mysql':
+					$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO {$table} ({$keys}) VALUES ({$values})");
+					break;
+				case 'oci':
+					$st = $this->prepare("BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END;");
+					break;
+				default:
+					$st = null;
 			}
-			//TODO mssql
-			//TODO pgsql
+
+			if(is_null($st)) {
+				throw new \Exception('Requested driver still not supported');
+			}
 			
-			foreach ($params as $key => $value) {
-				$st->bindValue(":$key", $value);
-			}
+			self::bindParams($params, $st);
 			$st->execute();
 			$inserted_id = $this->lastInsertId();
 			$this->commit();
@@ -176,14 +177,7 @@ final class PDOExtended extends PDO implements IConnectable
 
 	public function update(string $table, $params, string $where): bool
 	{
-		$paramsType = gettype($params);
-		if($paramsType !== 'array' && $paramsType !== 'object' ) {
-			throw new \UnexpectedValueException('$params can be only array or object');
-		}
-
-		if($paramsType === 'object') {
-			$params = (array) $params;
-		}
+		$params = self::castParamsToArray($params);
 
 		try {
 			ksort($params);
@@ -193,11 +187,8 @@ final class PDOExtended extends PDO implements IConnectable
 			}
 			$field_details = rtrim($values, ', ');
 
-			$st = $this->prepare("UPDATE $table SET $values WHERE $where");
-			foreach ($params as $key => $value) {
-				$st->bindValue(":$key", $value);
-			}
-
+			$st = $this->prepare("UPDATE {$table} SET {$values} WHERE {$where}");
+			self::bindParams($params, $st);
 			return $st->execute();
 		} catch (\PDOException $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
@@ -210,11 +201,8 @@ final class PDOExtended extends PDO implements IConnectable
 	{
 		try {
 			ksort($params);
-			$st = $this->prepare("DELETE FROM $table WHERE $where");
-			foreach ($params as $key => $value) {
-				$st->bindValue(":$key", $value);
-			}
-
+			$st = $this->prepare("DELETE FROM {$table} WHERE {$where}");
+			self::bindParams($params, $st);
 			return $st->execute();
 		} catch (\PDOException $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
@@ -241,16 +229,8 @@ final class PDOExtended extends PDO implements IConnectable
 			$procedure_out_params = rtrim($procedure_out_params, ', ');
 
 			$st = $this->prepare($this->constructProcedureString($name, $procedure_in_params, $procedure_out_params));
-			foreach ($inParams as $key => $value) {
-				$st->bindValue(":$key", $value);
-			}
-
-			$outResult = [];
-			foreach ($outParams as $value) {
-				$outResult[$value] = null;
-				$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, 4000);
-			}
-
+			self::bindParams($inParams, $st);
+			$outResult = self::bindOutParams($outParams, $st);
 			$st->execute();
 
 			if (count($outParams) > 0) {
@@ -290,8 +270,31 @@ final class PDOExtended extends PDO implements IConnectable
 			case 'oci':
 				$procedure_string = "BEGIN ###name### (###params###);";
 				break;
+			default:
+				$procedure_string = null;
+		}
+
+		if(is_null($procedure_string)) {
+			throw new \Exception('Requested driver still not supported');
 		}
 
 		return str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string);
+	}
+
+	protected static function bindParams(array &$params, &$st = null)
+	{
+		foreach ($params as $key => $value) {
+			$st->bindValue(":$key", $value);
+		}
+	}
+
+	protected static function bindOutParams(array &$params, &$st = null): array
+	{
+		$outResult = [];
+		foreach ($params as $value) {
+			$outResult[$value] = null;
+			$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, 4000);
+		}
+		return $outResult;
 	}
 }

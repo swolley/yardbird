@@ -1,14 +1,14 @@
 <?php
 namespace Swolley\Database;
 
-//require_once 'IConnectable.php';
-
 class OCIException extends \RuntimeException
 { 
 }
 
 final class OCIExtended implements IConnectable
 {
+	use TraitUtils;
+
 	private $db;
 
 	public function __construct(array $params)
@@ -70,23 +70,12 @@ final class OCIExtended implements IConnectable
 
 	public function query(string $query, $params = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
-		$paramsType = gettype($params);
-		if($paramsType !== 'array' && $paramsType !== 'object' ) {
-			throw new \UnexpectedValueException('$params can be only array or object');
-		}
-
-		if($paramsType === 'object') {
-			$params = (array) $params;
-		}
+		$params = self::castParamsToArray($params);
 
 		try {
 			ksort($params);
 			$st = oci_parse($this->db, $query);
-			foreach ($params as $key => $value) {
-				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new \Exception('Cannot bind parameter value');
-				}
-			}
+			self::bindParams($params, $st);
 			if (!oci_execute($st)) {
 				$error = oci_error($st);
 				throw new OCIException($error['message'], $error['code']);
@@ -116,14 +105,7 @@ final class OCIExtended implements IConnectable
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$paramsType = gettype($params);
-		if($paramsType !== 'array' && $paramsType !== 'object' ) {
-			throw new \UnexpectedValueException('$params can be only array or object');
-		}
-
-		if($paramsType === 'object') {
-			$params = (array) $params;
-		}
+		$params = self::castParamsToArray($params);
 		
 		try {
 			ksort($params);
@@ -131,11 +113,7 @@ final class OCIExtended implements IConnectable
 			$values = ':' . implode(', :', array_keys($params));
 
 			$st = oci_parse($this->db, "BEGIN INSERT INTO $table ($keys) VALUES ($values); EXCEPTION WHEN dup_val_on_index THEN null; END; RETURNING RowId INTO :last_inserted_id");
-			foreach ($params as $key => $value) {
-				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new \Exception('Cannot bind parameter value');
-				}
-			}
+			self::bindParams($params, $st);
 
 			if (!oci_bind_by_name($st, ":last_inserted_id", $inserted_id, 4000)) {
 				throw new \Exception('Cannot bind parameter value');
@@ -161,22 +139,20 @@ final class OCIExtended implements IConnectable
 		}
 	}
 
-	public function update(string $table, array $params, string $where): bool
+	public function update(string $table, $params, string $where): bool
 	{
+		$params = self::castParamsToArray($params);
+
 		try {
 			ksort($params);
 			$values = '';
 			foreach ($params as $key => $value) {
 				$values .= "`$key`=:$key";
 			}
-			$field_details = rtrim($field_details, ', ');
+			$values = rtrim($values, ', ');
 
 			$st = oci_parse($this->db, "UPDATE $table SET $values WHERE $where");
-			foreach ($params as $key => $value) {
-				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new \Exception('Cannot bind parameter value');
-				}
-			}
+			self::bindParams($params, $st);
 
 			if (!oci_execute($st)) {
 				$error = oci_error($st);
@@ -197,11 +173,7 @@ final class OCIExtended implements IConnectable
 		try {
 			ksort($params);
 			$st = oci_parse($this->db, "DELETE FROM $table WHERE $where");
-			foreach ($params as $key => $value) {
-				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new \Exception('Cannot bind parameter value');
-				}
-			}
+			self::bindParams($params, $st);
 
 			if (!oci_execute($st)) {
 				$error = oci_error($st);
@@ -242,11 +214,7 @@ final class OCIExtended implements IConnectable
 					. (count($outParams) > 0 ? $procedure_out_params : '')	//out params
 					. "); END;"
 			);
-			foreach ($inParams as $key => $value) {
-				if (!oci_bind_by_name($st, ":$key", $value)) {
-					throw new \Exception('Cannot bind parameter value');
-				}
-			}
+			self::bindParams($inParams, $st);
 
 			$outResult = [];
 			foreach ($outParams as $value) {
@@ -284,6 +252,15 @@ final class OCIExtended implements IConnectable
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
 		} catch (\Exception $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+		}
+	}
+
+	protected static function bindParams(array &$params, &$st = null)
+	{
+		foreach ($params as $key => $value) {
+			if (!oci_bind_by_name($st, ":$key", $value)) {
+				throw new \Exception('Cannot bind parameter value');
+			}
 		}
 	}
 }

@@ -13,6 +13,8 @@ use MongoDB\Exception\UnexpectedValueException;
 
 class MongoExtended extends MongoDB
 {
+	use TraitUtils;
+
 	private $dbName;
 
 	/**
@@ -43,39 +45,39 @@ class MongoExtended extends MongoDB
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	public function query(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function query(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
+		$params = self::castParamsToArray($params);
 		$query = (new QueryBuilder)($query, $params);
+
 		switch($query['type']) {
 			case 'select':
-				return $this->select($query['table'], $query['params'], $query['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+				return $this->select($query['query']['table'], $query['query']['params'], $query['query']['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'insert':
-				return $this->insert($query['table'], $query['params'], $query['ignore']);
+				return $this->insert($query['query']['table'], $query['query']['params'], $query['query']['ignore']);
 				break;
 			case 'update':
-				return $this->update($query['table'], $query['params'], $query['where']);
+				return $this->update($query['query']['table'], $query['query']['params'], $query['query']['where']);
 				break;
 			case 'delete':	
-				return $this->delete($query['table'], $query['params']);
+				return $this->delete($query['query']['table'], $query['query']['params']);
 				break;
 		}
 	}
 
 	//function select(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
-	public function select(string $collection, array $search, array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function select($collection, array $search = [], array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		try {
-			foreach ($search as &$param) {
-				$param = filter_var($param);
-			}
-
+			self::bindParams($search);
 			//FIXME does options need to be filtered???
 			/*foreach ($options as $key => &$param) {
 				$param = filter_var($param);
 			}*/
 
-			$response = $this->{$this->dbName}->{$collection}->find($search, $options);
+			$response = array_key_exists('distinct', $options) ? $this->db->command($options) : $this->{$this->dbName}->{$collection}->find($search, $options);
+						
 			switch ($fetchMode) {
 				case DBFactory::FETCH_ASSOC:
 					$response->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
@@ -90,7 +92,11 @@ class MongoExtended extends MongoDB
 					throw new MongoException\CommandException('Can fetch only Object or Associative Array');
 			}
 
-			return $response->toArray();
+			if(array_key_exists('count', $options)) {
+				return $response->count();
+			} else {
+				return $response->toArray();
+			}
 		} catch (MongoException $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
 		} catch (\Exception $e) {
@@ -107,23 +113,11 @@ class MongoExtended extends MongoDB
 	 */
 	public function insert(string $collection, $params, bool $ignore = false)
 	{
-		$paramsType = gettype($params);
-		if ($paramsType !== 'array' && $paramsType !== 'object') {
-			throw new \UnexpectedValueException('$params can be only array or object');
-		}
-
-		if ($paramsType === 'object') {
-			$params = (array)$params;
-		}
-
+		$params = self::castParamsToArray($params);
 		try {
-			foreach ($params as &$param) {
-				$param = filter_var($param);
-			}
-
-			return $this->{$this->dbName}->{$collection}
-				->insertOne($params, ['ordered' => !$ignore])
-				->getInsertedId()['oid'];
+			self::bindParams($params);
+			$response = $this->{$this->dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
+			return $response->getInsertedId()['oid'];
 		} catch (MongoException $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
 		} catch (\Exception $e) {
@@ -141,27 +135,13 @@ class MongoExtended extends MongoDB
 	//function update(string $table, $params, string $where);
 	public function update(string $collection, $params, array $where)
 	{
-		$paramsType = gettype($params);
-		if ($paramsType !== 'array' && $paramsType !== 'object') {
-			throw new \UnexpectedValueException('$params can be only array or object');
-		}
-
-		if ($paramsType === 'object') {
-			$params = (array)$params;
-		}
-
+		$params = self::castParamsToArray($params);
 		try {
-			foreach ($params as &$param) {
-				$param = filter_var($param);
-			}
+			self::bindParams($params);
+			self::bindParams($where);
 
-			foreach ($where as &$param) {
-				$param = filter_var($param);
-			}
-
-			return $this->{$this->dbName}->{$collection}
-				->updateMany($where, ['$set' => $params], ['upsert' => FALSE])
-				->getModifiedCount();
+			$response = $this->{$this->dbName}->{$collection}->updateMany($where, ['$set' => $params], ['upsert' => FALSE]);
+			return $response->getModifiedCount();
 		} catch (MongoException $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
 		} catch (\Exception $e) {
@@ -179,14 +159,9 @@ class MongoExtended extends MongoDB
 	public function delete(string $collection, array $where)
 	{
 		try {
-			foreach ($where as &$param) {
-				$param = filter_var($param);
-			}
-
-			$result = $this->{$this->dbName}->{$collection}
-				->deleteMany($where);
-
-			return $result->getDeletedCount() ? TRUE : FALSE;
+			self::bindParams($where);
+			$response = $this->{$this->dbName}->{$collection}->deleteMany($where);
+			return $response->getDeletedCount() ? TRUE : FALSE;
 		} catch (MongoException $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
 		} catch (\Exception $e) {
@@ -215,6 +190,13 @@ class MongoExtended extends MongoDB
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Error while querying db';
 		} catch (\Exception $e) {
 			return error_reporting() === E_ALL ? $e->getMessage() : 'Internal server error';
+		}
+	}
+
+	protected static function bindParams(array &$params, &$st = null)
+	{
+		foreach ($params as &$param) {
+			$param = filter_var($param);
 		}
 	}
 }

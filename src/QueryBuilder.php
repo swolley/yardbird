@@ -106,6 +106,8 @@ class QueryBuilder
 
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
+
+		//checks for where clauses
 		if (preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
 
@@ -160,7 +162,6 @@ class QueryBuilder
 		//removes SET keyword
 		array_shift($query);
 
-		
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', array_shift($query)[0]);
 		if (count($keys_list) === 0) {
@@ -175,6 +176,7 @@ class QueryBuilder
 		}
 		unset($keys_list);
 
+		//checks for where clauses
 		if (preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
 
@@ -218,25 +220,95 @@ class QueryBuilder
 	private function parseSelect(string $query, array $params = [])
 	{
 		/*
-		SELECT a,b FROM users	$db->users->find(array(), array("a" => 1, "b" => 1));
-		SELECT * FROM users WHERE age=33	$db->users->find(array("age" => 33));
-		SELECT a,b FROM users WHERE age=33	$db->users->find(array("age" => 33), array("a" => 1, "b" => 1));
 		SELECT a,b FROM users WHERE age=33 ORDER BY name	$db->users->find(array("age" => 33), array("a" => 1, "b" => 1))->sort(array("name" => 1));
-		SELECT * FROM users WHERE age>33	$db->users->find(array("age" => array('$gt' => 33)));
-		SELECT * FROM users WHERE age<33	$db->users->find(array("age" => array('$lt' => 33)));
 		SELECT * FROM users WHERE name LIKE "%Joe%"	$db->users->find(array("name" => new MongoRegex("/Joe/")));
 		SELECT * FROM users WHERE name LIKE "Joe%"	$db->users->find(array("name" => new MongoRegex("/^Joe/")));
-		SELECT * FROM users WHERE age>33 AND age<=40	$db->users->find(array("age" => array('$gt' => 33, '$lte' => 40)));
 		SELECT * FROM users ORDER BY name DESC	$db->users->find()->sort(array("name" => -1));
-		SELECT * FROM users WHERE a=1 and b='q'	$db->users->find(array("a" => 1, "b" => "q"));
 		SELECT * FROM users LIMIT 20, 10	$db->users->find()->limit(10)->skip(20);
-		SELECT * FROM users WHERE a=1 or b=2	$db->users->find(array('$or' => array(array("a" => 1), array("b" => 2))));
 		SELECT * FROM users LIMIT 1	$db->users->find()->limit(1);
-		SELECT DISTINCT last_name FROM users	$db->command(array("distinct" => "users", "key" => "last_name"));
 		SELECT COUNT(*y) FROM users	$db->users->count();
 		SELECT COUNT(*y) FROM users where AGE > 30	$db->users->find(array("age" => array('$gt' => 30)))->count();
 		SELECT COUNT(AGE) from users	$db->users->find(array("age" => array('$exists' => true)))->count();
 		*/ 
+
+		//splits main macro blocks (table, columns, values)
+		$query = rtrim(preg_replace('/^(select\s)/i', '', $query), ';');
+		$matches = [];
+		preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)(where\s?)(.*)$/i', $query, $matches);
+		$query = array_slice($matches, 1);
+		unset($matches);
+
+		//check if distinct
+		$isDistinct = false;
+		if (preg_match('/^distinct/i', $query[0][0]) === 1) {
+			array_shift($query);
+			$isDistinct = true;
+		} elseif($query[0][0] === '') {
+			array_shift($query);
+		}
+
+		//parse columns to select
+		$columns_list = preg_split('/,\s?/', array_shift($query)[0]);
+		$columns_list = array_map(function ($key) {
+			return trim(trim($key, '`'));
+		}, $columns_list);
+
+		if(count($columns_list) === 1 && $columns_list[0] === '*') {
+			$columns_list = [];
+		}
+
+		//bypasse FROM keyword
+		if(preg_match('/^from\s/i', $query[0][0]) === 0) {
+			throw new \UnexpectedValueException("select query require FROM keyword after columns list");
+		} else {
+			array_shift($query);
+		}
+
+		//set table name
+		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
+
+		if (preg_match('/^where/i', $query[0][0]) === 1) {
+			array_shift($query);
+
+			//splits on parentheses
+			$query = preg_split('/\s/', $query[0][0]);
+			for ($i = 0; $i < count($query); $i++) {
+				if (strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
+					$first_part = array_slice($query, 0, $i);
+					$second_part = array_slice($query, $i + 1);
+					if (substr($query[$i], 0, 1) === '(') {
+						$first_part[] = '(';
+						$first_part[] = substr($query[$i], 1);
+					} elseif (substr($query[$i], -1, 1) === ')') {
+						$first_part[] = substr($query[$i], 0, -1);
+						$first_part[] = ')';
+					}
+					$query = array_merge($first_part, $second_part);
+					$i++;
+				}
+			}
+
+			//parse and nest parameters
+			$i = 0;
+			$nested_level = 0;
+			$where_params = $this->parseOperators($query, $params, $i, $nested_level);
+
+			//groups params by logical operators
+			$final_nested = $this->groupLogicalOperators($where_params);
+		} else {
+			$final_nested = [];
+		}
+
+		//query elements ready to be passed to driver function
+		if($isDistinct) {
+			$final_nested = array_merge(['distinct' => $table], $final_nested);
+		}
+
+		return [
+			'table' => $table,
+			'params' => $columns_list,
+			'options' => $final_nested
+		];
 	}
 
 	private function parseOperators(array &$query, array &$params, int &$i, int &$nested_level)
