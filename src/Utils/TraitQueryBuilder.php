@@ -416,8 +416,6 @@ trait TraitQueryBuilder
 						];
 					}
 				}
-
-				$pippo = 'ciao';
 			} else {
 				if (count($query) === 1) {
 					$is_assoc = array_keys($query) !== range(0, count($query) - 1);
