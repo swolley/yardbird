@@ -82,19 +82,7 @@ final class OCIExtended implements IRelationalConnectable
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = [];
-		if ($fetchMode === BDFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
-			while ($row = oci_fetch_row($st)[$fetchModeParam] !== false) {
-				array_push($response, $row);
-			}
-		} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
-			return new $fetchModeParam(...oci_fetch_assoc($st));
-		} else {
-			while ($row = oci_fetch_assoc($st) !== false) {
-				array_push($response, $row);
-			}
-		}
-
+		$response = self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($st);
 		return $response;
 	}
@@ -117,19 +105,7 @@ final class OCIExtended implements IRelationalConnectable
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = [];
-		if ($fetchMode === BDFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
-			while ($row = oci_fetch_row($st)[$fetchModeParam] !== false) {
-				array_push($response, $row);
-			}
-		} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
-			return new $fetchModeParam(...oci_fetch_assoc($st));
-		} else {
-			while ($row = oci_fetch_assoc($st) !== false) {
-				array_push($response, $row);
-			}
-		}
-
+		$response = self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($st);
 		return $response;
 	}
@@ -141,10 +117,10 @@ final class OCIExtended implements IRelationalConnectable
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
 
-		$st = oci_parse($this->db, "BEGIN INSERT INTO $table ($keys) VALUES ($values); EXCEPTION WHEN dup_val_on_index THEN null; END; RETURNING RowId INTO :last_inserted_id");
+		$st = oci_parse($this->db, "BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END; RETURNING RowId INTO :last_inserted_id");
 		self::bindParams($params, $st);
 		$inserted_id = null;
-		selff:bindOutParams($st, ":last_inserted_id", $inserted_id);
+		selff: bindOutParams($st, ":last_inserted_id", $inserted_id);
 		if (!oci_execute($st)) {
 			$error = oci_error($st);
 			throw new QueryException($error['message'], $error['code']);
@@ -171,7 +147,7 @@ final class OCIExtended implements IRelationalConnectable
 		}
 		$values = rtrim($values, ', ');
 
-		$st = oci_parse($this->db, "UPDATE $table SET $values WHERE $where");
+		$st = oci_parse($this->db, "UPDATE {$table} SET {$values} WHERE {$where}");
 		self::bindParams($params, $st);
 
 		if (!oci_execute($st)) {
@@ -234,20 +210,28 @@ final class OCIExtended implements IRelationalConnectable
 			return $outResult;
 		}
 
+		$response = self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		oci_free_statement($st);
+		return $response;
+	}
+
+	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	{
 		$response = [];
 		if ($fetchMode === BDFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
 			while ($row = oci_fetch_row($st)[$fetchModeParam] !== false) {
 				array_push($response, $row);
 			}
 		} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
-			return new $fetchModeParam(...oci_fetch_assoc($st));
+			while ($row = oci_fetch_row($st) !== false) {
+				array_push($response, new $fetchModeParam(...oci_fetch_assoc($st)));
+			}
 		} else {
 			while ($row = oci_fetch_assoc($st) !== false) {
 				array_push($response, $row);
 			}
 		}
 
-		oci_free_statement($st);
 		return $response;
 	}
 
@@ -262,14 +246,14 @@ final class OCIExtended implements IRelationalConnectable
 
 	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000)
 	{
-		if(gettype($params) === 'array' && gettype($outResult) === 'array') {
+		if (gettype($params) === 'array' && gettype($outResult) === 'array') {
 			foreach ($params as $value) {
 				$outResult[$value] = null;
 				if (!oci_bind_by_name($st, ":$value", $outResult[$value], $maxLength)) {
 					throw new UnexpectedValueException('Cannot bind parameter value');
 				}
-			}	
-		} elseif(gettype($params) === 'string') {
+			}
+		} elseif (gettype($params) === 'string') {
 			$outResult = null;
 			if (!oci_bind_by_name($st, ":$params", $outResult, $maxLength)) {
 				throw new \Exception('Cannot bind parameter value');

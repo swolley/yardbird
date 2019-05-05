@@ -7,17 +7,19 @@ interface IRelationalConnectable extends IConnectable
 
 	static function constructConnectionString(array $params, array $init_Array = []): string;
 
-	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
-	
-	function select(string $table, array $params = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
+	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
 
-	function insert(string $table, $params, bool $ignore = false);
-	
+	function select(string $table, array $params = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
+
+	function insert(string $table, $params, bool $ignore = false): mixed;
+
 	function update(string $table, $params, string $where): bool;
-	
+
 	function delete(string $table, string $where, array $params): bool;
-	
-	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
+
+	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
+
+	static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
 
 	static function bindParams(array &$params, &$st = null);
 

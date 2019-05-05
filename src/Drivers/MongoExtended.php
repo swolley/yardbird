@@ -43,7 +43,6 @@ class MongoExtended extends MongoDB
 		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password']) || empty($params['dbName'])) {
 			throw new UnexpectedValueException("host, user, password, dbName can't be empty");
 		}
-
 		return $params;
 	}
 
@@ -57,8 +56,7 @@ class MongoExtended extends MongoDB
 	{
 		$params = self::castParamsToArray($params);
 		$query = $this->createQuery($query, $params);
-
-		switch($query['type']) {
+		switch ($query['type']) {
 			case 'command':
 				return $this->command($query['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
@@ -71,10 +69,10 @@ class MongoExtended extends MongoDB
 			case 'update':
 				return $this->update($query['table'], $query['params'], $query['where']);
 				break;
-			case 'delete':	
+			case 'delete':
 				return $this->delete($query['table'], $query['params']);
 				break;
-			case 'procedure':	
+			case 'procedure':
 				return $this->procedure($query['name'], $query['params']);
 				break;
 		}
@@ -83,24 +81,9 @@ class MongoExtended extends MongoDB
 	public function command(array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		//FIXME also options needs to be binded
-
 		try {
-			$response = $this->db->command($options);
-			switch ($fetchMode) {
-				case DBFactory::FETCH_ASSOC:
-					$response->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
-					break;
-				case DBFactory::FETCH_OBJ:
-					$response->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
-					break;
-					//case DBFactory::FETCH_CLASS:
-					//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
-					//	break;
-				default:
-					throw new MongoException\CommandException('Can fetch only Object or Associative Array');
-			}
-
-			return $response->toArray();
+			$st = $this->db->command($options);
+			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -116,26 +99,11 @@ class MongoExtended extends MongoDB
 				$param = filter_var($param);
 			}*/
 
-			$response = $this->{$this->dbName}->{$collection}->find($search, $options);
-						
-			switch ($fetchMode) {
-				case DBFactory::FETCH_ASSOC:
-					$response->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
-					break;
-				case DBFactory::FETCH_OBJ:
-					$response->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
-					break;
-					//case DBFactory::FETCH_CLASS:
-					//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
-					//	break;
-				default:
-					throw new MongoException\CommandException('Can fetch only Object or Associative Array');
-			}
-
-			if(array_key_exists('count', $options)) {
-				return $response->count();
+			$st = $this->{$this->dbName}->{$collection}->find($search, $options);
+			if (array_key_exists('count', $options)) {
+				return $st->count();
 			} else {
-				return $response->toArray();
+				return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 			}
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -211,25 +179,10 @@ class MongoExtended extends MongoDB
 	{
 		try {
 			self::bindParams($inParams);
-
 			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($inParams)) . ');');
 			$command = new MongoCmd(['eval' => $jscode]);
-			$response = $this->getManager()->executeCommand($this->dbName, $command);
-			switch ($fetchMode) {
-				case DBFactory::FETCH_ASSOC:
-					$response->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
-					break;
-				case DBFactory::FETCH_OBJ:
-					$response->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
-					break;
-					//case DBFactory::FETCH_CLASS:
-					//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
-					//	break;
-				default:
-					throw new MongoException\CommandException('Can fetch only Object or Associative Array');
-			}
-
-			return $response->toArray();
+			$st = $this->getManager()->executeCommand($this->dbName, $command);
+			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -240,5 +193,23 @@ class MongoExtended extends MongoDB
 		foreach ($params as &$param) {
 			$param = filter_var($param);
 		}
+	}
+
+	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	{
+		switch ($fetchMode) {
+			case DBFactory::FETCH_ASSOC:
+				$st->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
+				break;
+			case DBFactory::FETCH_OBJ:
+				$st->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
+				break;
+				//case DBFactory::FETCH_CLASS:
+				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
+				//	break;
+			default:
+				throw new MongoException\CommandException('Can fetch only Object or Associative Array');
+		}
+		return $st->toArray();
 	}
 }

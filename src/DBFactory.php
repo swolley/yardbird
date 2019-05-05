@@ -22,7 +22,7 @@ final class DBFactory
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) {
 			throw new BadMethodCallException("Connection parameters are required");
 		}
-			
+
 		if (!self::checkExtension($connectionParameters['driver'])) {
 			throw new \Exception('Extension not supported with current php configuration', 500);
 		}

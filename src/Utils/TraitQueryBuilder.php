@@ -15,7 +15,7 @@ trait TraitQueryBuilder
 			return self::parseDelete($query, $params);
 		} elseif (preg_match('/^update/i', $query) === 1) {
 			return self::parseUpdate($query, $params);
-		} elseif(preg_match('/^call|exec|begin/i', $query) === 1) {
+		} elseif (preg_match('/^call|exec|begin/i', $query) === 1) {
 			return self::parseProcedure($query, $params);
 		} else {
 			throw new \UnexpectedValueException('queryBuilder is unable to convert query');
@@ -161,7 +161,7 @@ trait TraitQueryBuilder
 		if (count($keys_list) === 0) {
 			throw new \UnexpectedValueException('parseInsert needs to know columns\' names');
 		}
-		
+
 		$parsed_params = [];
 		foreach ($keys_list as $value) {
 			$exploded = explode('=', preg_replace('/`|\s/', '', $value));
@@ -224,7 +224,7 @@ trait TraitQueryBuilder
 		SELECT COUNT(*y) FROM users	$db->users->count();
 		SELECT COUNT(*y) FROM users where AGE > 30	$db->users->find(array("age" => array('$gt' => 30)))->count();
 		SELECT COUNT(AGE) from users	$db->users->find(array("age" => array('$exists' => true)))->count();
-		*/ 
+		*/
 
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(select\s)/i', '', $query), ';');
@@ -238,7 +238,7 @@ trait TraitQueryBuilder
 		if (preg_match('/^distinct/i', $query[0][0]) === 1) {
 			array_shift($query);
 			$isDistinct = true;
-		} elseif($query[0][0] === '') {
+		} elseif ($query[0][0] === '') {
 			array_shift($query);
 		}
 
@@ -248,12 +248,12 @@ trait TraitQueryBuilder
 			return trim(trim($key, '`'));
 		}, $columns_list);
 
-		if(count($columns_list) === 1 && $columns_list[0] === '*') {
+		if (count($columns_list) === 1 && $columns_list[0] === '*') {
 			$columns_list = [];
 		}
 
 		//bypasse FROM keyword
-		if(preg_match('/^from\s/i', $query[0][0]) === 0) {
+		if (preg_match('/^from\s/i', $query[0][0]) === 0) {
 			throw new \UnexpectedValueException("select query require FROM keyword after columns list");
 		} else {
 			array_shift($query);
@@ -295,7 +295,7 @@ trait TraitQueryBuilder
 		}
 
 		//query elements ready to be passed to driver function
-		if($isDistinct) {
+		if ($isDistinct) {
 			$final_nested = array_merge(['distinct' => $table], $final_nested);
 		}
 
@@ -319,12 +319,12 @@ trait TraitQueryBuilder
 		$procedure = preg_replace('/`|\s/', '', array_shift($query)[0]);
 		$parameters_list = preg_replace('/(\)|;).*/', '', array_shift($query)[0]);
 		$parameters_list = preg_split('/,\s?/', $parameters_list);
-		
+
 		foreach ($parameters_list as $key => $value) {
 			//checks if every placeholder has a value in params
-			if(strpos($value, ':') === 0) {
+			if (strpos($value, ':') === 0) {
 				$key = ltrim($value, ':');
-				if(!array_key_exists($key, $params)) {
+				if (!array_key_exists($key, $params)) {
 					throw new BadMethodCallException("Missing correscponding value to bind in params array");
 				}
 			} else {

@@ -33,7 +33,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 		if (!isset($params['host'], $params['user'], $params['password'])) {
 			throw new BadMethodCallException("host, user, password are required");
-		}elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
+		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
 			throw new UnexpectedValueException("host, user, password can't be empty");
 		}
 
@@ -58,62 +58,24 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 
 		/////////////////////////////////////////////////////////////
-		if($params['driver'] !== 'oci' && !isset($params['dbName'])) {
+		if ($params['driver'] !== 'oci' && !isset($params['dbName'])) {
 			throw new BadMethodCallException("dbName is required");
 		} elseif ($params['driver'] !== 'oci' && empty($params['dbName'])) {
 			throw new UnexpectedValueException("dbName can't be empty");
 		}
-		
-		if($params['driver'] === 'oci' && (!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
+
+		if ($params['driver'] === 'oci' && (!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
 			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
-		
+
 		return $params;
 	}
 
 	public static function constructConnectionString(array $params, array $init_arr = []): string
 	{
-		return $params['driver'] === 'oci' 
+		return $params['driver'] === 'oci'
 			? self::getOciString($params)
-			: self:: getDefaultString($params);
-	}
-
-	/**
-	 * @param	array	$params	connection parameters
-	 * @return	string	connection string for main drivers
-	 */
-	private static function getDefaultString(array $params): string
-	{
-		return "{$params['driver']}:host={$params['host']};port={$params['port']};dbname={$params['dbName']};charset={$params['charset']}";
-	}
-
-	/**
-	 * @param	array	$params	connection parameters
-	 * @return	string	connection string with tns for oci driver
-	 * @throws	BadMethodCallException	if missing parameters
-	 */
-	private static function getOciString(array $params): string
-	{
-		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
-		
-		if(is_null($connect_data_name)) {
-			throw new BadMethodCallException("Missing paramters");
-		}
-
-		$connect_data_value = $params[$connect_data_name];
-
-		$tns = preg_replace("/\n|\r|\n\r|\t/", '', "
-			(DESCRIPTION = 
-				(ADDRESS_LIST = 
-					(ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))
-				)
-				(CONNECT_DATA = 
-					(" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")
-				)
-			)"
-		);
-		
-		return "oci:dbname={$tns};charset={$params['charset']}";	
+			: self::getDefaultString($params);
 	}
 
 	public function sql(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
@@ -125,13 +87,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			$st = $this->prepare($query);
 			self::bindParams($params, $st);
 			$st->execute();
-			if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
-				return $fetchMode & self::FETCH_PROPS_LATE
-					? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
-					: $st->fetchAll($fetchMode, $fetchModeParam);
-			} else {
-				return $st->fetchAll($fetchMode);
-			}
+			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -151,14 +107,8 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 			$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} WHERE {$stringed_where}");
 			self::bindParams($where, $st);
-			return $st->execute();
-			if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
-				return $fetchMode & self::FETCH_PROPS_LATE
-					? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
-					: $st->fetchAll($fetchMode, $fetchModeParam);
-			} else {
-				return $st->fetchAll($fetchMode);
-			}
+			$st->execute();
+			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -177,7 +127,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 			$driver = $this->getAttribute(self::ATTR_DRIVER_NAME);
 			$st = null;
-			switch($driver) {
+			switch ($driver) {
 				case 'mysql':
 					$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO {$table} ({$keys}) VALUES ({$values})");
 					break;
@@ -188,10 +138,10 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 					$st = null;
 			}
 
-			if(is_null($st)) {
+			if (is_null($st)) {
 				throw new \Exception('Requested driver still not supported');
 			}
-			
+
 			self::bindParams($params, $st);
 			$st->execute();
 			$inserted_id = $this->lastInsertId();
@@ -260,16 +210,86 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 			if (count($outParams) > 0) {
 				return $outResult;
-			} elseif (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
-				return $fetchMode & self::FETCH_PROPS_LATE
-					? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
-					: $st->fetchAll($fetchMode, $fetchModeParam);
 			} else {
-				return $st->fetchAll($fetchMode);
+				return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 			}
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
+	}
+
+	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	{
+		if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
+			return $fetchMode & self::FETCH_PROPS_LATE
+				? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
+				: $st->fetchAll($fetchMode, $fetchModeParam);
+		} else {
+			return $st->fetchAll($fetchMode);
+		}
+	}
+
+	public static function bindParams(array &$params, &$st = null)
+	{
+		foreach ($params as $key => $value) {
+			$st->bindValue(":$key", $value);
+		}
+	}
+
+	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000)
+	{
+		if (gettype($params) === 'array' && gettype($outResult) === 'array') {
+			foreach ($params as $value) {
+				$outResult[$value] = null;
+				$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
+			}
+		} elseif (gettype($params) === 'string') {
+			$outResult = null;
+			$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
+		} else {
+			throw new BadMethodCallException('$params and $outResult must have same type');
+		}
+	}
+
+	/**
+	 * @param	array	$params	connection parameters
+	 * @return	string	connection string for main drivers
+	 */
+	private static function getDefaultString(array $params): string
+	{
+		return "{$params['driver']}:host={$params['host']};port={$params['port']};dbname={$params['dbName']};charset={$params['charset']}";
+	}
+
+	/**
+	 * @param	array	$params	connection parameters
+	 * @return	string	connection string with tns for oci driver
+	 * @throws	BadMethodCallException	if missing parameters
+	 */
+	private static function getOciString(array $params): string
+	{
+		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
+
+		if (is_null($connect_data_name)) {
+			throw new BadMethodCallException("Missing paramters");
+		}
+
+		$connect_data_value = $params[$connect_data_name];
+
+		$tns = preg_replace(
+			"/\n|\r|\n\r|\t/",
+			'',
+			"
+			(DESCRIPTION = 
+				(ADDRESS_LIST = 
+					(ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))
+				)
+				(CONNECT_DATA = 
+					(" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")
+				)
+			)"
+		);
+
+		return "oci:dbname={$tns};charset={$params['charset']}";
 	}
 
 	/**
@@ -282,7 +302,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 	{
 		$parameters_string = $in . (strlen($in) > 0 && strlen($out) > 0 ? ', ' : '') . $out;
 		$procedure_string = null;
-		switch($this->getAttribute(self::ATTR_DRIVER_NAME)) {
+		switch ($this->getAttribute(self::ATTR_DRIVER_NAME)) {
 			case 'pgsql':
 			case 'mysql':
 				$procedure_string = "CALL ###name###(###params###);";
@@ -297,32 +317,10 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 				$procedure_string = null;
 		}
 
-		if(is_null($procedure_string)) {
+		if (is_null($procedure_string)) {
 			throw new \Exception('Requested driver still not supported');
 		}
 
 		return str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string);
-	}
-
-	public static function bindParams(array &$params, &$st = null)
-	{
-		foreach ($params as $key => $value) {
-			$st->bindValue(":$key", $value);
-		}
-	}
-
-	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000)
-	{
-		if(gettype($params) === 'array' && gettype($outResult) === 'array') {
-			foreach ($params as $value) {
-				$outResult[$value] = null;
-				$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
-			}	
-		} elseif(gettype($params) === 'string') {
-			$outResult = null;
-			$st->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
-		} else {
-			throw new BadMethodCallException('$params and $outResult must have same type');
-		}
 	}
 }
