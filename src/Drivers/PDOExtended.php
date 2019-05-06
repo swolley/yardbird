@@ -180,7 +180,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			foreach ($params as $key => $value) {
 				$values .= "`$key`=:$key, ";
 			}
-			$field_details = rtrim($values, ', ');
+			$values = rtrim($values, ', ');
 
 			$st = $this->prepare("UPDATE `{$table}` SET {$values} WHERE {$where}");
 			self::bindParams($params, $st);
