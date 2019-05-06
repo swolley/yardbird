@@ -102,7 +102,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
-			$stringed_fields = join(', ', $fields);
+			$stringed_fields = '`' . join('`, `', $fields) . '`';
 
 			ksort($where);
 			$values = '';
@@ -126,8 +126,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 		try {
 			ksort($params);
-			$keys = implode(',', array_keys($params));
-			$values = ':' . implode(', :', array_keys($params));
+			$keys_list = array_keys($params);
+			$keys = '`' . implode('`, `', $keys_list) . '`';
+			$values = ':' . implode(', :', $keys_list);
 
 			$this->beginTransaction();
 
@@ -135,10 +136,10 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			$st = null;
 			switch ($driver) {
 				case 'mysql':
-					$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO {$table} ({$keys}) VALUES ({$values})");
+					$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `{$table}` ({$keys}) VALUES ({$values})");
 					break;
 				case 'oci':
-					$st = $this->prepare("BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END;");
+					$st = $this->prepare("BEGIN INSERT INTO `{$table}` ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END;");
 					break;
 				default:
 					$st = null;
@@ -171,7 +172,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			$field_details = rtrim($values, ', ');
 
-			$st = $this->prepare("UPDATE {$table} SET {$values} WHERE {$where}");
+			$st = $this->prepare("UPDATE `{$table}` SET {$values} WHERE {$where}");
 			self::bindParams($params, $st);
 			return $st->execute();
 		} catch (\PDOException $e) {
