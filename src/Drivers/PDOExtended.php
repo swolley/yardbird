@@ -161,9 +161,10 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 				throw new QueryException("{$error[0]}: {$error[2]}");
 			}
 			$inserted_id = $this->lastInsertId();
+			$total_inserted = $st->rowCount();
 			$this->commit();
 
-			return $inserted_id;
+			return $inserted_id !== '0' ? $inserted_id : $total_inserted > 0;
 		} catch (\PDOException $e) {
 			$this->rollBack();
 			throw new QueryException($e->getMessage(), $e->getCode());

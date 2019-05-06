@@ -46,7 +46,7 @@ interface IConnectable
 	 * @param   string  		$table      table name
 	 * @param   array|object	$params     assoc array with placeholder's name and relative values
 	 * @param   boolean 		$ignore		performes an 'insert ignore' query
-	 * @return  mixed                   	new row id or error message
+	 * @return  int|bool                 	new row id if key is autoincremental or boolean
 	 */
 	function insert(string $table, $params, bool $ignore = false);
 
