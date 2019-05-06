@@ -21,7 +21,7 @@ interface IRelationalConnectable extends IConnectable
 
 	static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
-	static function bindParams(array &$params, &$st = null): void;
+	static function bindParams(array &$params, &$st = null): bool;
 
 	/**
 	 * bind out params by reference with custom parameters depending by driver

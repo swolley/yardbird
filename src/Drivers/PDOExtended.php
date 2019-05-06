@@ -9,7 +9,7 @@ use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 
-final class PDOExtended extends \PDO implements IRelationalConnectable
+class PDOExtended extends \PDO implements IRelationalConnectable
 {
 	use TraitUtils;
 
@@ -91,7 +91,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		try {
 			ksort($params);
 			$st = $this->prepare($query);
-			self::bindParams($params, $st);
+			if(!self::bindParams($params, $st)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}");
@@ -115,7 +117,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			$stringed_where = rtrim($values, 'AND ');
 
 			$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} WHERE {$stringed_where}");
-			self::bindParams($where, $st);
+			if(!self::bindParams($where, $st)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}");
@@ -155,7 +159,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 				throw new \Exception('Requested driver still not supported');
 			}
 
-			self::bindParams($params, $st);
+			if(!self::bindParams($params, $st)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}");
@@ -184,7 +190,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			$values = rtrim($values, ', ');
 
 			$st = $this->prepare("UPDATE `{$table}` SET {$values} WHERE {$where}");
-			self::bindParams($params, $st);
+			if(!self::bindParams($params, $st)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}");
@@ -201,7 +209,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		try {
 			ksort($params);
 			$st = $this->prepare("DELETE FROM {$table} WHERE {$where}");
-			self::bindParams($params, $st);
+			if(!self::bindParams($params, $st)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}");
@@ -231,7 +241,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			$procedure_out_params = rtrim($procedure_out_params, ', ');
 
 			$st = $this->prepare($this->constructProcedureString($name, $procedure_in_params, $procedure_out_params));
-			self::bindParams($inParams, $st);
+			if(!self::bindParams($inParams, $st)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			}
 			$outResult = [];
 			self::bindOutParams($outParams, $st, $outResult);
 			if(!$st->execute()) {
@@ -260,11 +272,20 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public static function bindParams(array &$params, &$st = null): void
+	public static function bindParams(array &$params, &$st = null): bool
 	{
-		foreach ($params as $key => $value) {
-			$st->bindValue(":$key", $value);
+		if(preg_match_all('/:[\S]*/', $st->queryString) > count($params)) {
+			throw new BadMethodCallException("Not enough values to bind placeholders");
 		}
+
+		foreach ($params as $key => $value) {
+            $varType = is_null($value) ? self::PARAM_NULL : is_bool($value) ? self::PARAM_BOOL : is_int($value) ? self::PARAM_INT : self::PARAM_STR;
+            if (!$st->bindValue(":$key", $value, $varType)) {
+                return false;
+			}
+        }
+
+        return true;
 	}
 
 	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000): void

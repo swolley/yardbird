@@ -194,11 +194,25 @@ class MongoExtended extends MongoDB
 		}
 	}
 
-	public static function bindParams(array &$params, &$st = null): void
+	public static function bindParams(array &$params, &$st = null): bool
 	{
-		foreach ($params as &$param) {
-			$param = filter_var($param);
+		foreach ($params as &$value) {
+			$varType = is_bool($value) ? FILTER_VALIDATE_BOOLEAN : is_int($value) ? FILTER_VALIDATE_INT : is_float($value) ? FILTER_VALIDATE_FLOAT : FILTER_DEFAULT;
+			$options = [
+				'options' => [
+					'default' => null, // value to return if the filter fails
+				]
+			];
+			if($varType === FILTER_VALIDATE_BOOLEAN) {
+				$options['flags'] = FILTER_NULL_ON_FAILURE;
+			}
+			$value = filter_var($value, $varType, $options);
+			if(is_null($value)) {
+				return false;
+			}
 		}
+
+		return true;
 	}
 
 	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array

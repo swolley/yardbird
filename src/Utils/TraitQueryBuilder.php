@@ -19,7 +19,7 @@ trait TraitQueryBuilder
 		} elseif (preg_match('/^call|exec|begin/i', $query) === 1) {
 			return self::parseProcedure($query, $params);
 		} else {
-			throw new UnexpectedValueException('queryBuilder is unable to convert query');
+			throw new UnexpectedValueException('queryBuilder is unable to detect the query type');
 		}
 	}
 
@@ -30,6 +30,11 @@ trait TraitQueryBuilder
 		if (preg_match('/^(insert\s)(ignore\s)/i', $query) === 1) {
 			$ignore = true;
 		}
+
+		if(!strpos(strtolower($query), 'into')) {
+			throw new UnexpectedValueException('unable to parse query, check syntax');
+		}
+
 		$query = rtrim(preg_replace('/^(insert\s)(ignore\s)?(into\s)/i', '', $query), ';');
 
 		//splits main macro blocks (table, columns, values)
@@ -38,6 +43,9 @@ trait TraitQueryBuilder
 		$query = array_slice($matches, 1);
 		unset($matches);
 
+		if(empty($query[0])) {
+			throw new UnexpectedValueException('unable to parse query, check syntax');
+		}
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
 		if (preg_match('/^values/i', $query[0][0]) === 1) {
@@ -50,12 +58,12 @@ trait TraitQueryBuilder
 			throw new UnexpectedValueException('parseInsert needs to know columns\' names');
 		}
 		$keys_list = array_map(function ($key) {
-			return trim($key, '`');
+			return preg_replace('/`|\s/', '', $key);
 		}, $keys_list);
 
 		//list of columns'values
 		if (preg_match('/^values/i', array_shift($query)[0]) === 0) {
-			throw new UnexpectedValueException('columns\' list must be followed by VALUES keyword');
+			throw new UnexpectedValueException('columns list must be followed by VALUES keyword');
 		}
 
 		$values_list = preg_split('/,\s?/', preg_replace('/\(|\)/', '', array_shift($query)[0]));
@@ -94,15 +102,23 @@ trait TraitQueryBuilder
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(delete from\s)/i', '', $query), ';');
 		$matches = [];
-		preg_match_all('/^(`?\w+(?=\s*)`?\s?)(where\s?)(.*)$/i', $query, $matches);
+		//TODO not found a better way to split with optional where clauses
+		if(strpos(strtolower($query), 'where')) {
+			preg_match_all('/^(`?\w+(?=\s*)`?\s?)(where\s?)(.*)$/i', $query, $matches);
+		} else {
+			preg_match_all('/^(`?\w+(?=\s*)`?\s?)$/i', $query, $matches);
+		}
 		$query = array_slice($matches, 1);
 		unset($matches);
+		if(empty(end($query)[0])) {
+			throw new UnexpectedValueException('unable to parse query, check syntax');
+		}
 
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
 
 		//checks for where clauses
-		if (preg_match('/^where/i', $query[0][0]) === 1) {
+		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
 
 			//splits on parentheses
@@ -138,7 +154,7 @@ trait TraitQueryBuilder
 		return [
 			'type' => 'delete',
 			'table' => $table,
-			'params' => $$final_nested
+			'params' => $final_nested
 		];
 	}
 
@@ -147,10 +163,18 @@ trait TraitQueryBuilder
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(update\s)/i', '', $query), ';');
 		$matches = [];
-		//FIXME non tiene conto che potrebbe mancare il where
-		preg_match_all('/^(`?\w+(?=\s*)`?\s?)(set\s)(.*\s?)(where\s)(.*)$/i', $query, $matches);
+		//TODO not found a better way to split with optional where clauses
+		if(strpos(strtolower($query), 'where')) {
+			preg_match_all('/^(`?\w+(?=\s*)`?\s?)(set\s)(.*\s?)(where\s)(.*)$/i', $query, $matches);
+		} else {
+			preg_match_all('/^(`?\w+(?=\s*)`?\s?)(set\s)(.*\s?)$/i', $query, $matches);
+		}
 		$query = array_slice($matches, 1);
 		unset($matches);
+		
+		if(empty($query[0])) {
+			throw new UnexpectedValueException('unable to parse query, check syntax');
+		}
 
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
@@ -172,7 +196,7 @@ trait TraitQueryBuilder
 		unset($keys_list);
 
 		//checks for where clauses
-		if (preg_match('/^where/i', $query[0][0]) === 1) {
+		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
 
 			//splits on parentheses
@@ -230,10 +254,18 @@ trait TraitQueryBuilder
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(select\s)/i', '', $query), ';');
 		$matches = [];
-		//FIXME not function if no where clause
-		preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)(where\s?)(.*)$/i', $query, $matches);
+		//TODO not found a better way to split with optional where clauses
+		if(strpos(strtolower($query), 'where')) {
+			preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)(where\s?)(.*)$/i', $query, $matches);
+		} else {
+			preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)$/i', $query, $matches);
+		}
 		$query = array_slice($matches, 1);
 		unset($matches);
+
+		if(empty($query[0])) {
+			throw new UnexpectedValueException('unable to parse query, check syntax');
+		}
 
 		//check if distinct
 		$isDistinct = false;
@@ -256,7 +288,7 @@ trait TraitQueryBuilder
 
 		//bypasse FROM keyword
 		if (preg_match('/^from\s/i', $query[0][0]) === 0) {
-			throw new \UnexpectedValueException("select query require FROM keyword after columns list");
+			throw new UnexpectedValueException("select query require FROM keyword after columns list");
 		} else {
 			array_shift($query);
 		}
@@ -264,7 +296,7 @@ trait TraitQueryBuilder
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
 
-		if (preg_match('/^where/i', $query[0][0]) === 1) {
+		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
 
 			//splits on parentheses
@@ -322,20 +354,24 @@ trait TraitQueryBuilder
 		$parameters_list = preg_replace('/(\)|;).*/', '', array_shift($query)[0]);
 		$parameters_list = preg_split('/,\s?/', $parameters_list);
 
-		foreach ($parameters_list as $key => $value) {
-			//checks if every placeholder has a value in params
-			if (strpos($value, ':') === 0) {
-				$key = ltrim($value, ':');
-				if (!array_key_exists($key, $params)) {
-					throw new BadMethodCallException("Missing correscponding value to bind in params array");
+		if(count($parameters_list) > 0 && !empty($parameters_list[0])) {
+			foreach ($parameters_list as $key => $value) {
+				//checks if every placeholder has a value in params
+				if (strpos($value, ':') === 0) {
+					$key = ltrim($value, ':');
+					if (!array_key_exists($key, $params)) {
+						throw new BadMethodCallException("Missing corresponding value to bind in params array");
+					}
+				} else {
+					//if is not a placeholder create new element in params array with value found in query
+					$first_part = array_slice($params, 0, $key);
+					$second_part = array_slice($params, $key + 1);
+					$first_part['param' . ($key + 1)] = $this->castValue($value);
+					$params = array_merge($first_part, $second_part);
 				}
-			} else {
-				//if is not a placeholder create new element in params array with value found in query
-				$first_part = array_slice($params, 0, $key);
-				$second_part = array_slice($params, $key + 1);
-				$first_part['param' . ($key + 1)] = $this->castValue($value);
-				$params = array_merge($first_part, $second_part);
 			}
+		} else {
+			$params = [];
 		}
 
 		return [

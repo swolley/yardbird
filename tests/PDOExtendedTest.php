@@ -6,9 +6,16 @@ use Swolley\Database\Drivers\PDOExtended;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\Database\Interfaces\IRelationalConnectable;
 
 final class PDOExtendedTest extends TestCase
 {
+	public function test_PDOExtended_should_implements_IRelationalConnectable(): void
+	{
+		$reflection = new \ReflectionClass(PDOExtended::class);
+		$this->assertTrue($reflection->implementsInterface(IRelationalConnectable::class));
+	}
+
 	///////////////////////////////// CONNECTION ////////////////////////////////////////////////
 	public function test_validateConnectionParams_should_return_exception_if_no_valid_parameters_passed(): void
     {
@@ -64,23 +71,4 @@ final class PDOExtendedTest extends TestCase
 
 		$method->invokeArgs($reflection, [['sid' => null, 'serviceName' => null]]);
 	}
-
-	///////////////////////////////// CRUD ////////////////////////////////////////////////
-	/*public function test_() {
-		// Create a stub for the SomeClass class.
-		$stub = $this->getMockBuilder(PDOExtended::class)
-						->disableOriginalConstructor()
-						->disableOriginalClone()
-						->disableArgumentCloning()
-						->disallowMockingUnknownTypes()
-						->getMock();
-
-		// Configure the stub.
-		$stub->method('doSomething')
-			->willReturn('foo');
-
-		// Calling $stub->doSomething() will now return
-		// 'foo'.
-		$this->assertEquals('foo', $stub->doSomething());
-	}*/
 }

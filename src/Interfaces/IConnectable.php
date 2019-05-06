@@ -94,6 +94,7 @@ interface IConnectable
 	 * bind passed parameters for sql injection
 	 * @param	array	$params	parameters to be binded
 	 * @param	mixed	$st		(optional) statement. Mongo has no statement
+	 * @return	bool			params binded correctly
 	 */
-	static function bindParams(array &$params, &$st = null): void;
+	static function bindParams(array &$params, &$st = null): bool;
 }
