@@ -1,7 +1,8 @@
 <?php
 namespace Swolley\Database\Utils;
 
-use MongoDB\Exception\BadMethodCallException;
+use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\Database\Exceptions\BadMethodCallException;
 
 trait TraitQueryBuilder
 {
@@ -18,7 +19,7 @@ trait TraitQueryBuilder
 		} elseif (preg_match('/^call|exec|begin/i', $query) === 1) {
 			return self::parseProcedure($query, $params);
 		} else {
-			throw new \UnexpectedValueException('queryBuilder is unable to convert query');
+			throw new UnexpectedValueException('queryBuilder is unable to convert query');
 		}
 	}
 
@@ -40,13 +41,13 @@ trait TraitQueryBuilder
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
 		if (preg_match('/^values/i', $query[0][0]) === 1) {
-			throw new \UnexpectedValueException('parseInsert needs to know columns\' names');
+			throw new UnexpectedValueException('parseInsert needs to know columns\' names');
 		}
 
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', preg_replace('/\(|\)/', '', array_shift($query)[0]));
 		if (count($keys_list) === 0) {
-			throw new \UnexpectedValueException('parseInsert needs to know columns\' names');
+			throw new UnexpectedValueException('parseInsert needs to know columns\' names');
 		}
 		$keys_list = array_map(function ($key) {
 			return trim($key, '`');
@@ -54,12 +55,12 @@ trait TraitQueryBuilder
 
 		//list of columns'values
 		if (preg_match('/^values/i', array_shift($query)[0]) === 0) {
-			throw new \UnexpectedValueException('columns\' list must be followed by VALUES keyword');
+			throw new UnexpectedValueException('columns\' list must be followed by VALUES keyword');
 		}
 
 		$values_list = preg_split('/,\s?/', preg_replace('/\(|\)/', '', array_shift($query)[0]));
 		if (count($values_list) === 0) {
-			throw new \UnexpectedValueException('parseInsert needs to know columns\' values');
+			throw new UnexpectedValueException('parseInsert needs to know columns\' values');
 		}
 		$values_list = array_map(function ($value) {
 			return $this->castValue($value);
@@ -159,7 +160,7 @@ trait TraitQueryBuilder
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', array_shift($query)[0]);
 		if (count($keys_list) === 0) {
-			throw new \UnexpectedValueException('parseInsert needs to know columns\' names');
+			throw new UnexpectedValueException('parseInsert needs to know columns\' names');
 		}
 
 		$parsed_params = [];
@@ -229,6 +230,7 @@ trait TraitQueryBuilder
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(select\s)/i', '', $query), ';');
 		$matches = [];
+		//FIXME not function if no where clause
 		preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)(where\s?)(.*)$/i', $query, $matches);
 		$query = array_slice($matches, 1);
 		unset($matches);
@@ -370,7 +372,7 @@ trait TraitQueryBuilder
 						$operator = '$gte';
 						break;
 					default:
-						throw new \UnexpectedValueException('Unrecognised operator');
+						throw new UnexpectedValueException('Unrecognised operator');
 				}
 
 				$splitted[2] = $this->castValue($splitted[2]);
@@ -391,7 +393,7 @@ trait TraitQueryBuilder
 				$nested_level--;
 				break;
 			} else {
-				throw new \UnexpectedValueException('Unexpected keyword ' . $query[$i]);
+				throw new UnexpectedValueException('Unexpected keyword ' . $query[$i]);
 			}
 			$i++;
 		}
