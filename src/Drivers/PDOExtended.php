@@ -143,7 +143,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 					$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `{$table}` ({$keys}) VALUES ({$values})");
 					break;
 				case 'oci':
-					$st = $this->prepare("BEGIN INSERT INTO `{$table}` ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END;");
+					$st = $this->prepare("BEGIN INSERT INTO `{$table}` ({$keys}) VALUES ({$values}); " . ($ignore ? "EXCEPTION WHEN dup_val_on_index THEN null; " : '') . "END;");
 					break;
 				default:
 					$st = null;
@@ -162,6 +162,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 			return $inserted_id;
 		} catch (\PDOException $e) {
+			$this->rollBack();
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
