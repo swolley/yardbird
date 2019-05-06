@@ -40,8 +40,8 @@ final class DBFactoryTest extends TestCase
 		(new DBFactory)(['driver' => 'invalid']);
 	}
 
-	public function test_invoke_class_should_return_iConnectable_instance_if_connection_established(): void
+	/*public function test_invoke_class_should_return_iConnectable_instance_if_connection_established(): void
 	{
 		$connection = (new DBFactory)('');
-	}
+	}*/
 }

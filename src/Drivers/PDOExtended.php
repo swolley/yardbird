@@ -4,6 +4,7 @@ namespace Swolley\Database\Drivers;
 use Swolley\Database\DBFactory;
 use Swolley\Database\Interfaces\IRelationalConnectable;
 use Swolley\Database\Utils\TraitUtils;
+use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
@@ -18,11 +19,16 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 	public function __construct(array $params)
 	{
 		$params = self::validateConnectionParams($params);
-		parent::__construct(self::constructConnectionString($params), $params['user'], $params['password']);
-
-		if (error_reporting() === E_ALL) {
-			parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
+		
+		try{
+			parent::__construct(self::constructConnectionString($params), $params['user'], $params['password']);
+			if (error_reporting() === E_ALL) {
+				parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
+			}
+		} catch(\PDOException $e) {
+			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
+
 	}
 
 	public static function validateConnectionParams($params): array
@@ -78,9 +84,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			: self::getDefaultString($params);
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 
 		try {
 			ksort($params);
@@ -93,7 +99,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			$stringed_fields = join(', ', $fields);
@@ -116,7 +122,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 
 		try {
 			ksort($params);
@@ -155,7 +161,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function update(string $table, $params, string $where): bool
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 
 		try {
 			ksort($params);
@@ -185,7 +191,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			//input params
@@ -218,7 +224,7 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
 			return $fetchMode & self::FETCH_PROPS_LATE
@@ -229,14 +235,14 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public static function bindParams(array &$params, &$st = null)
+	public static function bindParams(array &$params, &$st = null): void
 	{
 		foreach ($params as $key => $value) {
 			$st->bindValue(":$key", $value);
 		}
 	}
 
-	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000)
+	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000): void
 	{
 		if (gettype($params) === 'array' && gettype($outResult) === 'array') {
 			foreach ($params as $value) {

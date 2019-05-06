@@ -5,6 +5,7 @@ use Swolley\Database\DBFactory;
 use Swolley\Database\Interfaces\IConnectable;
 use Swolley\Database\Utils\TraitUtils;
 use Swolley\Database\Utils\TraitQueryBuilder;
+use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
@@ -14,6 +15,7 @@ use MongoDB\Driver\Command as MongoCmd;
 use MongoDB\Driver\Manager as MongoManager;
 use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
+use MongoDB\Driver\MongoConnectionException;
 use MongoLog;
 
 class MongoExtended extends MongoDB
@@ -29,10 +31,14 @@ class MongoExtended extends MongoDB
 	public function __construct(array $params)
 	{
 		$params = self::validateConnectionParams($params);
-		parent::__construct(self::constructConnectionString($params), [
-			'authSource' => 'admin',
-		]);
-		$this->dbName = $params['dbName'];
+		try{
+			parent::__construct(self::constructConnectionString($params), [
+				'authSource' => 'admin',
+			]);
+			$this->dbName = $params['dbName'];
+		} catch(MongoConnectionException $e) {
+			throw new ConnectionException($e->getMessage(), $e->getCode());
+		}
 	}
 
 	public static function validateConnectionParams($params): array
@@ -52,9 +58,9 @@ class MongoExtended extends MongoDB
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 		$query = $this->createQuery($query, $params);
 		switch ($query['type']) {
 			case 'command':
@@ -90,7 +96,7 @@ class MongoExtended extends MongoDB
 	}
 
 	//function select(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
-	public function select(string $collection, array $search = [], array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function select(string $collection, array $search = [], array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($search);
@@ -119,7 +125,7 @@ class MongoExtended extends MongoDB
 	 */
 	public function insert(string $collection, $params, bool $ignore = false)
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 		try {
 			self::bindParams($params);
 			$response = $this->{$this->dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
@@ -139,7 +145,7 @@ class MongoExtended extends MongoDB
 	//function update(string $table, $params, string $where);
 	public function update(string $collection, $params, array $where)
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 		try {
 			self::bindParams($params);
 			self::bindParams($where);
@@ -175,7 +181,7 @@ class MongoExtended extends MongoDB
 	 * @param   array   $params         (optional) assoc array with paramter's names and relative values
 	 * @return  mixed                   stored procedure result or error message
 	 */
-	public function procedure(string $name, array $inParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function procedure(string $name, array $inParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($inParams);
@@ -188,14 +194,14 @@ class MongoExtended extends MongoDB
 		}
 	}
 
-	public static function bindParams(array &$params, &$st = null)
+	public static function bindParams(array &$params, &$st = null): void
 	{
 		foreach ($params as &$param) {
 			$param = filter_var($param);
 		}
 	}
 
-	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		switch ($fetchMode) {
 			case DBFactory::FETCH_ASSOC:

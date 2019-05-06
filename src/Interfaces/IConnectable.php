@@ -27,7 +27,7 @@ interface IConnectable
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
+	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
 	/**
 	 * with sql drivers this is a very simple and limited SELECT query builder whit list of fields and AND-separated where clauses
@@ -39,7 +39,7 @@ interface IConnectable
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	function select(string $table, array $params = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
+	function select(string $table, array $params = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
 	/**
 	 * execute insert query
@@ -48,7 +48,7 @@ interface IConnectable
 	 * @param   boolean 		$ignore		performes an 'insert ignore' query
 	 * @return  mixed                   	new row id or error message
 	 */
-	function insert(string $table, $params, bool $ignore = false): mixed;
+	function insert(string $table, $params, bool $ignore = false);
 
 	/**
 	 * execute update query. Where is required, no massive update permitted
@@ -78,7 +78,7 @@ interface IConnectable
 	 * @param	int|string	$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return mixed									response array or error message
 	 */
-	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
+	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
 	/**
 	 * fetch and parse query results
@@ -86,14 +86,14 @@ interface IConnectable
 	 * @param	int			$fetchMode				(optional) fetch mode. default ASSOCIATIVE ARRAY
 	 * @param	int|string	$fetchModeParam			(optional) fetch mode param if fetch mode is class or column
 	 * @param	array		$fetchPropsLateParams	(optional) constructor params if fetch mode has FETCH_PROPS_LATE option
-	 * @param	mixed								fetched and parsed data
+	 * @param	array								fetched and parsed data
 	 */
-	static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): mixed;
+	static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
 	/**
 	 * bind passed parameters for sql injection
 	 * @param	array	$params	parameters to be binded
 	 * @param	mixed	$st		(optional) statement. Mongo has no statement
 	 */
-	static function bindParams(array &$params, &$st = null);
+	static function bindParams(array &$params, &$st = null): void;
 }

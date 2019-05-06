@@ -3,6 +3,7 @@ namespace Swolley\Database\Drivers;
 
 use Swolley\Database\DBFactory;
 use Swolley\Database\Interfaces\IRelationalConnectable;
+use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
@@ -17,6 +18,10 @@ final class OCIExtended implements IRelationalConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		$this->db = oci_connect($params['user'], $params['password'], self::constructConnectionString($params));
+		if(!$this->db) {
+			$e = oci_error();
+    		throw new ConnectionException($e['message'], $e['code']);
+		}
 	}
 
 	public static function validateConnectionParams($params): array
@@ -72,7 +77,7 @@ final class OCIExtended implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 
 		ksort($params);
 		$st = oci_parse($this->db, $query);
@@ -112,7 +117,7 @@ final class OCIExtended implements IRelationalConnectable
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 		ksort($params);
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
@@ -138,7 +143,7 @@ final class OCIExtended implements IRelationalConnectable
 
 	public function update(string $table, $params, string $where): bool
 	{
-		$params = self::castParamsToArray($params);
+		$params = self::castToArray($params);
 
 		ksort($params);
 		$values = '';
