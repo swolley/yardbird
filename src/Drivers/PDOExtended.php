@@ -92,7 +92,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			ksort($params);
 			$st = $this->prepare($query);
 			self::bindParams($params, $st);
-			$st->execute();
+			if(!$st->execute()) {
+				throw new QueryException("An error occured while executing query");
+			}
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -113,7 +115,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 			$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} WHERE {$stringed_where}");
 			self::bindParams($where, $st);
-			$st->execute();
+			if(!$st->execute()) {
+				throw new QueryException("An error occured while executing query");
+			}
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -150,7 +154,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 
 			self::bindParams($params, $st);
-			$st->execute();
+			if(!$st->execute()) {
+				throw new QueryException("An error occured while executing query");
+			}
 			$inserted_id = $this->lastInsertId();
 			$this->commit();
 
@@ -174,7 +180,11 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 
 			$st = $this->prepare("UPDATE `{$table}` SET {$values} WHERE {$where}");
 			self::bindParams($params, $st);
-			return $st->execute();
+			if(!$st->execute()) {
+				throw new QueryException("An error occured while executing query");
+			}
+
+			return $st->rowCount() > 0;
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -186,7 +196,11 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			ksort($params);
 			$st = $this->prepare("DELETE FROM {$table} WHERE {$where}");
 			self::bindParams($params, $st);
-			return $st->execute();
+			if(!$st->execute()) {
+				throw new QueryException("An error occured while executing query");
+			}
+
+			return $st->rowCount() > 0;
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -213,7 +227,9 @@ final class PDOExtended extends \PDO implements IRelationalConnectable
 			self::bindParams($inParams, $st);
 			$outResult = [];
 			self::bindOutParams($outParams, $st, $outResult);
-			$st->execute();
+			if(!$st->execute()) {
+				throw new QueryException("An error occured while executing query");
+			}
 
 			if (count($outParams) > 0) {
 				return $outResult;
