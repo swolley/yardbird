@@ -274,9 +274,9 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public static function bindParams(array &$params, &$st = null): bool
 	{
-		if(preg_match_all('/:[\S]*/', $st->queryString) > count($params)) {
-			throw new BadMethodCallException("Not enough values to bind placeholders");
-		}
+		// if(preg_match_all('/:[\S]*/', $st->queryString) > count($params)) {
+		// 	throw new BadMethodCallException("Not enough values to bind placeholders");
+		// }
 
 		foreach ($params as $key => $value) {
             $varType = is_null($value) ? self::PARAM_NULL : is_bool($value) ? self::PARAM_BOOL : is_int($value) ? self::PARAM_INT : self::PARAM_STR;
