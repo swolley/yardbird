@@ -26,7 +26,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
 			}
 		} catch(\PDOException $e) {
-			throw new ConnectionException($e->getMessage(), $e->getCode());
+			throw new ConnectionException($e->getMessage(), $e->getCode(), $e);
 		}
 
 	}
@@ -86,13 +86,16 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		];
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$query = self::trimCr($query);
 		$params = self::castToArray($params);
 
+		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
+		//TODO add the function developed for mysqli
+		
 		try {
-			ksort($params);
+			//ksort($params);
 			$st = $this->prepare($query);
 			if(!self::bindParams($params, $st)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
@@ -103,7 +106,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
-			throw new QueryException($e->getMessage(), $e->getCode());
+			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
@@ -112,7 +115,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		try {
 			$stringed_fields = '`' . join('`, `', $fields) . '`';
 
-			ksort($where);
+			//ksort($where);
 			$values = '';
 			foreach ($where as $key => $value) {
 				$values .= "`$key`=:$key AND ";
@@ -129,7 +132,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
-			throw new QueryException($e->getMessage(), $e->getCode());
+			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
@@ -137,8 +140,10 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	{
 		$params = self::castToArray($params);
 
+		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
+
 		try {
-			ksort($params);
+			//ksort($params);
 			$keys_list = array_keys($params);
 			$keys = '`' . implode('`, `', $keys_list) . '`';
 			$values = ':' . implode(', :', $keys_list);
@@ -176,23 +181,27 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			return $inserted_id !== '0' ? $inserted_id : $total_inserted > 0;
 		} catch (\PDOException $e) {
 			$this->rollBack();
-			throw new QueryException($e->getMessage(), $e->getCode());
+			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function update(string $table, $params, string $where): bool
+	public function update(string $table, $params, string $where = null): bool
 	{
 		$params = self::castToArray($params);
+		
+		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
+
+		//TODO how to bind where clause?
 
 		try {
-			ksort($params);
+			//ksort($params);
 			$values = '';
 			foreach ($params as $key => $value) {
 				$values .= "`$key`=:$key, ";
 			}
 			$values = rtrim($values, ', ');
 
-			$st = $this->prepare("UPDATE `{$table}` SET {$values} WHERE {$where}");
+			$st = $this->prepare("UPDATE `{$table}` SET {$values}" . (!is_null($where) ? " WHERE {$where}" : ''));
 			if(!self::bindParams($params, $st)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
 			}
@@ -203,15 +212,16 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 			return $st->rowCount() > 0;
 		} catch (\PDOException $e) {
-			throw new QueryException($e->getMessage(), $e->getCode());
+			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function delete(string $table, string $where, array $params): bool
+	public function delete(string $table, array $params, string $where = null): bool
 	{
 		try {
-			ksort($params);
-			$st = $this->prepare("DELETE FROM {$table} WHERE {$where}");
+			//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
+			//ksort($params);
+			$st = $this->prepare("DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
 			if(!self::bindParams($params, $st)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
 			}
@@ -222,24 +232,24 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 			return $st->rowCount() > 0;
 		} catch (\PDOException $e) {
-			throw new QueryException($e->getMessage(), $e->getCode());
+			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			//input params
 			$procedure_in_params = '';
 			foreach ($inParams as $key => $value) {
-				$procedure_in_params .= ":$key,";
+				$procedure_in_params .= ":$key, ";
 			}
 			$procedure_in_params = rtrim($procedure_in_params, ', ');
 
 			//output params
 			$procedure_out_params = '';
 			foreach ($outParams as $value) {
-				$procedure_out_params .= ":$value,";
+				$procedure_out_params .= ":$value, ";
 			}
 			$procedure_out_params = rtrim($procedure_out_params, ', ');
 
@@ -260,14 +270,14 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 			}
 		} catch (\PDOException $e) {
-			throw new QueryException($e->getMessage(), $e->getCode());
+			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public static function fetch($st, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
-			return $fetchMode & self::FETCH_PROPS_LATE
+		if (($fetchMode === DBFactory::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & DBFactory::FETCH_CLASS && is_string($fetchModeParam))) {
+			return $fetchMode & DBFactory::FETCH_PROPS_LATE
 				? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
 				: $st->fetchAll($fetchMode, $fetchModeParam);
 		} else {

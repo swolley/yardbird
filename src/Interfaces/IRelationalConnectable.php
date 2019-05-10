@@ -13,9 +13,9 @@ interface IRelationalConnectable extends IConnectable
 
 	function insert(string $table, $params, bool $ignore = false);
 
-	function update(string $table, $params, string $where): bool;
+	function update(string $table, $params, string $where = null): bool;
 
-	function delete(string $table, string $where, array $params): bool;
+	function delete(string $table, array $params, string $where = null): bool;
 
 	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 

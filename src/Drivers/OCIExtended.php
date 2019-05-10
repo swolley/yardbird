@@ -81,12 +81,15 @@ class OCIExtended implements IRelationalConnectable
 		];
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$query = self::trimCr($query);
 		$params = self::castToArray($params);
 
-		ksort($params);
+		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
+		//TODO add the function developed for mysqli
+
+		//ksort($params);
 		$st = oci_parse($this->db, $query);
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
@@ -105,7 +108,7 @@ class OCIExtended implements IRelationalConnectable
 	{
 		$stringed_fields = join(', ', $fields);
 
-		ksort($where);
+		//ksort($where);
 		$values = '';
 		foreach ($where as $key => $value) {
 			$values .= "`$key`=:$key AND ";
@@ -129,7 +132,7 @@ class OCIExtended implements IRelationalConnectable
 	public function insert(string $table, $params, bool $ignore = false)
 	{
 		$params = self::castToArray($params);
-		ksort($params);
+		//ksort($params);
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
 
@@ -154,18 +157,22 @@ class OCIExtended implements IRelationalConnectable
 		return $inserted_id;
 	}
 
-	public function update(string $table, $params, string $where): bool
+	public function update(string $table, $params, string $where = null): bool
 	{
 		$params = self::castToArray($params);
 
-		ksort($params);
+		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
+
+		//TODO how to bind where clause?
+
+		//ksort($params);
 		$values = '';
 		foreach ($params as $key => $value) {
 			$values .= "`$key`=:$key";
 		}
 		$values = rtrim($values, ', ');
 
-		$st = oci_parse($this->db, "UPDATE {$table} SET {$values} WHERE {$where}");
+		$st = oci_parse($this->db, "UPDATE `{$table}` SET {$values}" . (!is_null($where) ? " WHERE {$where}" : ''));
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}
@@ -179,10 +186,12 @@ class OCIExtended implements IRelationalConnectable
 		return true;
 	}
 
-	public function delete(string $table, string $where, array $params): bool
+	public function delete(string $table, array $params, string $where = null): bool
 	{
-		ksort($params);
-		$st = oci_parse($this->db, "DELETE FROM $table WHERE $where");
+		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
+		
+		//ksort($params);
+		$st = oci_parse($this->db, "DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}
@@ -196,19 +205,19 @@ class OCIExtended implements IRelationalConnectable
 		return true;
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		//input params
 		$procedure_in_params = '';
 		foreach ($inParams as $key => $value) {
-			$procedure_in_params .= ":$key,";
+			$procedure_in_params .= ":$key, ";
 		}
 		$procedure_in_params = rtrim($procedure_in_params, ', ');
 
 		//output params
 		$procedure_out_params = '';
 		foreach ($outParams as $value) {
-			$procedure_out_params .= ":$value,";
+			$procedure_out_params .= ":$value, ";
 		}
 		$procedure_out_params = rtrim($procedure_out_params, ', ');
 
@@ -218,7 +227,7 @@ class OCIExtended implements IRelationalConnectable
 				. (count($inParams) > 0 ? $procedure_in_params : '')	//in params
 				. (count($inParams) > 0 && count($outParams) > 0 ? ', ' : '')	//separator between in and out params
 				. (count($outParams) > 0 ? $procedure_out_params : '')	//out params
-				. "); END;"
+			. "); END;"
 		);
 		if(!self::bindParams($inParams, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
@@ -242,11 +251,11 @@ class OCIExtended implements IRelationalConnectable
 	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$response = [];
-		if ($fetchMode === BDFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
+		if ($fetchMode === DBFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
 			while ($row = oci_fetch_row($st)[$fetchModeParam] !== false) {
 				array_push($response, $row);
 			}
-		} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
+		} elseif ($fetchMode & DBFactory::FETCH_CLASS && is_string($fetchModeParam)) {
 			while ($row = oci_fetch_assoc($st) !== false) {
 				array_push($response, new $fetchModeParam(...$row));
 			}

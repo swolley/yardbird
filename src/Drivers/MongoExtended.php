@@ -126,7 +126,7 @@ class MongoExtended extends MongoDB
 	 * @param   boolean $ignore         performes an 'insert ignore' query
 	 * @return  mixed                   new row id or error message
 	 */
-	public function insert(string $collection, $params, bool $ignore = false)
+	public function insert(string $collection, $params = [], bool $ignore = false)
 	{
 		$params = self::castToArray($params);
 		try {
@@ -146,7 +146,7 @@ class MongoExtended extends MongoDB
 	 * @return  mixed                   correct query execution confirm as boolean or error message
 	 */
 	//function update(string $table, $params, string $where);
-	public function update(string $collection, $params, array $where)
+	public function update(string $collection, $params = [], array $where = [])
 	{
 		$params = self::castToArray($params);
 		try {
@@ -167,7 +167,7 @@ class MongoExtended extends MongoDB
 	 * @return  mixed                   correct query execution confirm as boolean or error message
 	 */
 	//function delete(string $table, string $where, array $params);
-	public function delete(string $collection, array $where)
+	public function delete(string $collection, array $where = [])
 	{
 		try {
 			self::bindParams($where);
@@ -231,7 +231,7 @@ class MongoExtended extends MongoDB
 				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
 				//	break;
 			default:
-				throw new MongoException\CommandException('Can fetch only Object or Associative Array');
+				throw new MongoException\CommandException('Can\'t fetch. Only Object or Associative Array mode accepted');
 		}
 		return $st->toArray();
 	}

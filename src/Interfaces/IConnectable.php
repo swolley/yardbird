@@ -58,7 +58,7 @@ interface IConnectable
 	 * @param   string  		$where      where condition. no placeholders permitted
 	 * @return  bool	                   	correct query execution confirm as boolean or error message
 	 */
-	function update(string $table, $params, string $where): bool;
+	function update(string $table, $params, string $where = null): bool;
 
 	/**
 	 * execute delete query. Where is required, no massive delete permitted
@@ -67,7 +67,7 @@ interface IConnectable
 	 * @param   array   $params	assoc array with placeholder's name and relative values for where condition
 	 * @return  bool			correct query execution confirm as boolean or error message
 	 */
-	function delete(string $table, string $where, array $params): bool;
+	function delete(string $table, array $params, string $where = null): bool;
 
 	/**
 	 * execute procedure call.

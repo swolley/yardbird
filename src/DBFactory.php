@@ -5,6 +5,7 @@ use Swolley\Database\Interfaces\IConnectable;
 use Swolley\Database\Drivers\MongoExtended;
 use Swolley\Database\Drivers\OCIExtended;
 use Swolley\Database\Drivers\PDOExtended;
+use Swolley\Database\Drivers\MySqliExtended;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
@@ -70,6 +71,8 @@ final class DBFactory
 			case '4d':
 			case 'mysql':
 				return extension_loaded('pdo') ? 'pdo' : $driver === 'mysql' && extension_loaded('mysqli') ? 'mysqli' : null;
+			case 'mysqli': 
+				return extension_loaded('mysqli') ? 'mysqli' : null;
 			default:
 				return null;
 		}
