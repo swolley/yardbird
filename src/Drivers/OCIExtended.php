@@ -83,6 +83,7 @@ class OCIExtended implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
+		$query = self::trimCr($query);
 		$params = self::castToArray($params);
 
 		ksort($params);
@@ -246,8 +247,8 @@ class OCIExtended implements IRelationalConnectable
 				array_push($response, $row);
 			}
 		} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
-			while ($row = oci_fetch_row($st) !== false) {
-				array_push($response, new $fetchModeParam(...oci_fetch_assoc($st)));
+			while ($row = oci_fetch_assoc($st) !== false) {
+				array_push($response, new $fetchModeParam(...$row));
 			}
 		} else {
 			while ($row = oci_fetch_assoc($st) !== false) {

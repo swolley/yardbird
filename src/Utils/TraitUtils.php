@@ -33,4 +33,9 @@ trait TraitUtils
 
 		return $paramsType === 'array' ? (object)$params : $params;
 	}
+
+	protected static function trimCr(string $query): string
+	{
+		return preg_replace('(/\n\r|\n|\r/)', ' ', $query);
+	}
 }

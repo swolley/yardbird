@@ -5,7 +5,8 @@
         "test": "SHELL_INTERACTIVE=1 phpunit --bootstrap vendor/autoload.php --colors=always --stop-on-failure ./tests/"
     },
     "suggest": {
-        "mongodb/mongodb": "For MongoDB connection compatibility"
+		"ext-mongo": "php mongo extension",
+        "mongodb/mongodb": "For MongoDB wrapper"
     },
     "license": "MIT",
     "authors": [

@@ -23,52 +23,55 @@ final class DBFactory
 			throw new BadMethodCallException("Connection parameters are required");
 		}
 
-		if (!self::checkExtension($connectionParameters['driver'])) {
+		$extension_name = self::checkExtension($connectionParameters['driver']);
+		if (is_null($extension_name)) {
 			throw new \Exception('Extension not supported with current php configuration', 500);
 		}
 
-		switch ($connectionParameters['driver']) {
+		switch ($extension_name) {
 			case 'mongodb':
 				return new MongoExtended($connectionParameters);
-				break;
 			case 'oci8':
 				return new OCIExtended($connectionParameters);
-			default:
-				//pdo handles unsupported classes case
+			case 'pdo':
 				return new PDOExtended($connectionParameters);
+			case 'mysqli':
+				return new MySqliExtended($connectionParameters);
 		}
 	}
 
-	private static function checkExtension(string $driver): bool
+	/**
+	 * @param	string	driver
+	 */
+	private static function checkExtension(string $driver): ?string
 	{
 		if (empty($driver)) {
 			throw new BadMethodCallException('No driver specified');
 		}
 
-		$extension_name = null;
 		switch ($driver) {
 			case 'mongodb':
-				$extension_name = 'mongodb';
-				break;
+				return extension_loaded('mongodb') ? 'mongodb' : null;
+			case 'oci':
+				if(extension_loaded('pdo')){
+					return 'pdo';	//correctly inside if. no pdo => tries oci8
+				}
 			case 'oci8':
-				$extension_name = 'oci8';
-				break;
+				return extension_loaded('oci8') ? 'oci8' : null;
 			case 'cubrid':
 			case 'dblib':
 			case 'firebird':
 			case 'ibm':
 			case 'informix':
-			case 'mysql':
-			case 'oci':
 			case 'odbc':
 			case 'pgsql':
 			case 'sqlite':
 			case 'sqlsrv':
 			case '4d':
-				$extension_name = 'pdo';
-				break;
+			case 'mysql':
+				return extension_loaded('pdo') ? 'pdo' : $driver === 'mysql' && extension_loaded('mysqli') ? 'mysqli' : null;
+			default:
+				return null;
 		}
-
-		return !is_null($extension_name) ? extension_loaded($extension_name) : false;
 	}
 }

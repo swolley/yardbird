@@ -19,13 +19,13 @@ final class DBFactoryTest extends TestCase
 		$method->invokeArgs($reflection, ['']);
 	}
 	
-	public function test_checkExtension_should_return_false_if_not_in_list_driver(): void
+	public function test_checkExtension_should_return_null_if_not_in_list_driver(): void
     {
 		$reflection = new \ReflectionClass(get_class(new DBFactory));
 		$method = $reflection->getMethod('checkExtension');
 		$method->setAccessible(true);
 		
-        $this->assertEquals(false, $method->invokeArgs($reflection, ['invalid']));
+        $this->assertEquals(null, $method->invokeArgs($reflection, ['invalid']));
 	}
 	
 	public function test_invoke_class_should_return_exception_if_empty_array_passed(): void

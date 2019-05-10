@@ -88,6 +88,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
+		$query = self::trimCr($query);
 		$params = self::castToArray($params);
 
 		try {
@@ -98,7 +99,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}");
+				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
 			}
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
@@ -124,7 +125,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}");
+				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
 			}
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
@@ -166,7 +167,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}");
+				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
 			}
 			$inserted_id = $this->lastInsertId();
 			$total_inserted = $st->rowCount();
@@ -197,7 +198,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}");
+				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
 			}
 
 			return $st->rowCount() > 0;
@@ -216,7 +217,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}");
+				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
 			}
 
 			return $st->rowCount() > 0;
@@ -250,7 +251,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			self::bindOutParams($outParams, $st, $outResult);
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}");
+				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
 			}
 
 			if (count($outParams) > 0) {

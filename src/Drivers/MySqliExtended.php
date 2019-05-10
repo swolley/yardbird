@@ -73,25 +73,47 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
+		$query = self::trimCr($query);
 		$params = self::castToArray($params);
 
-		try {
-			ksort($params);
-			$splitted = preg_split('/(:\w+)$/i', $query);
-			foreach($splitted as $param) {
+		ksort($params);
+		
+		$total_params = count($params);
+		$question_mark_placeholders = substr_count($query, '?');
+		$colon_placeholders = [];
+		preg_match_all('/(:\w+)/i', $query, $colon_placeholders);
+		$colon_placeholders = array_pop(array_shift($colon_placeholders));
+
+		if($question_mark_placeholders === 0 && $colon_placeholders === $total_params) {
+			$reordered_params = [];
+			foreach($colon_placeholders[0] as $param) {
+				$key = array_search(ltrim($param, ':'), $params);
+				if($key) {
+					$reordered_params[] = $param[$key];
+					str_replace($param, '?', $query);
+				} else {
+					throw new BadMethodCallException("`$param` not found in parameters list");
+				}
 			}
-			$st = $this->prepare($query);
-			if(!self::bindParams($params, $st)) {
-				throw new UnexpectedValueException('Cannot bind parameters');
-			}
-			if(!$st->execute()) {
-				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}");
-			}
-			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
-		} catch (\PDOException $e) {
-			throw new QueryException($e->getMessage(), $e->getCode());
+
+			$params = $reordered_params;
+			unset($reordered_params);
+		} elseif($colon_placeholders > 0 && $question_mark_placeholders > 0 || $question_mark_placeholders !== $total_params) {
+			throw new BadMethodCallException('Possible incongruence in query placeholders');
+		}			
+		
+		$st = $this->prepare($query);
+		if(!self::bindParams($params, $st)) {
+			throw new UnexpectedValueException('Cannot bind parameters');
 		}
+		if(!$st->execute()) {
+			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
+		}
+
+		$result =  self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		$st->close();
+
+		return $result;
 	}
 
 	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
@@ -253,13 +275,22 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 
 	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		if (($fetchMode === self::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & self::FETCH_CLASS && is_string($fetchModeParam))) {
-			return $fetchMode & self::FETCH_PROPS_LATE
-				? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
-				: $st->fetchAll($fetchMode, $fetchModeParam);
+		$response = [];
+		if ($fetchMode === BDFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
+			while ($row = $st->fetch($st)[$fetchModeParam]) {
+				array_push($response, $row);
+			}
+		} elseif ($fetchMode & BDFactory::FETCH_CLASS && is_string($fetchModeParam)) {
+			while ($row = $st->fetch($st)) {
+				array_push($response, new $fetchModeParam(...$row));
+			}
 		} else {
-			return $st->fetchAll($fetchMode);
+			while ($row = $st->fetch($st)) {
+				array_push($response, $row);
+			}
 		}
+
+		return $response;
 	}
 
 	public static function bindParams(array &$params, &$st = null): bool
@@ -273,7 +304,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			$varTypes .= is_bool($value) || is_int($value) ? 'i' : is_float($value) || is_double($value) ? 'd' : 's';
         }
 		
-		if (!$st->bindValue($varTypes, array_values($params))) {
+		if (!$st->bind_param($varTypes, array_values($params))) {
 			return false;
 		}
 
