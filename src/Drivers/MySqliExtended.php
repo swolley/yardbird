@@ -9,7 +9,7 @@ use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 
-class PDOExtended extends \PDO implements IRelationalConnectable
+class MySqliExtended extends \mysqli implements IRelationalConnectable
 {
 	use TraitUtils;
 
@@ -20,20 +20,17 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		
-		try{
-			parent::__construct(...self::composeConnectionParams($params));
-			if (error_reporting() === E_ALL) {
-				parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
-			}
-		} catch(\PDOException $e) {
-			throw new ConnectionException($e->getMessage(), $e->getCode());
+		parent::__construct($params['host'], $params['user'], $params['password'], $params['dbName'], $params['port']);
+		if ($this->connect_error()) {
+			throw new ConnectionException($this->connect_error, $this->connect_errno);
+		} else {
+			$this->set_charset($params['charset']);
 		}
-
 	}
 
 	public static function validateConnectionParams($params): array
 	{
-		if (!in_array($params['driver'], self::getAvailableDrivers())) {
+		if ($params['driver'] !== 'mysql') {
 			throw new UnexpectedValueException("No {$params['driver']} driver available");
 		}
 
@@ -45,17 +42,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 		//default ports
 		if (!isset($params['port'])) {
-			switch ($params['driver']) {
-				case 'mysql':
-					$params['port'] = 3306;
-					break;
-				case 'pgsql':
-					$params['port'] = 5432;
-				case 'mssql';
-					$params['port'] = 1433;
-				case 'oci':
-					$params['port'] = 1521;
-			}
+			$params['port'] = 3306;
 		}
 
 		//default charset
@@ -64,14 +51,10 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 
 		/////////////////////////////////////////////////////////////
-		if ($params['driver'] !== 'oci' && !isset($params['dbName'])) {
+		if (!isset($params['dbName'])) {
 			throw new BadMethodCallException("dbName is required");
-		} elseif ($params['driver'] !== 'oci' && empty($params['dbName'])) {
+		} elseif (empty($params['dbName'])) {
 			throw new UnexpectedValueException("dbName can't be empty");
-		}
-
-		if ($params['driver'] === 'oci' && (!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
-			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
 
 		return $params;
@@ -80,9 +63,11 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	public static function composeConnectionParams(array $params, array $init_arr = []): array
 	{
 		return [
-			$params['driver'] === 'oci'	? self::getOciString($params) : self::getDefaultString($params),
+			$params['host'], 
 			$params['user'], 
-			$params['password']
+			$params['password'], 
+			$params['dbName'], 
+			$params['port']
 		];
 	}
 
@@ -92,6 +77,9 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 		try {
 			ksort($params);
+			$splitted = preg_split('/(:\w+)$/i', $query);
+			foreach($splitted as $param) {
+			}
 			$st = $this->prepare($query);
 			if(!self::bindParams($params, $st)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
@@ -280,12 +268,14 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		// 	throw new BadMethodCallException("Not enough values to bind placeholders");
 		// }
 
-		foreach ($params as $key => $value) {
-            $varType = is_null($value) ? self::PARAM_NULL : is_bool($value) ? self::PARAM_BOOL : is_int($value) ? self::PARAM_INT : self::PARAM_STR;
-            if (!$st->bindValue(":$key", $value, $varType)) {
-                return false;
-			}
+		$varTypes = '';
+		foreach ($params as $value) {
+			$varTypes .= is_bool($value) || is_int($value) ? 'i' : is_float($value) || is_double($value) ? 'd' : 's';
         }
+		
+		if (!$st->bindValue($varTypes, array_values($params))) {
+			return false;
+		}
 
         return true;
 	}

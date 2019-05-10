@@ -32,9 +32,7 @@ class MongoExtended extends MongoDB
 	{
 		$params = self::validateConnectionParams($params);
 		try{
-			parent::__construct(self::constructConnectionString($params), [
-				'authSource' => 'admin',
-			]);
+			parent::__construct(...self::constructConnectionString($params, [ 'authSource' => 'admin' ]));
 			$this->dbName = $params['dbName'];
 		} catch(MongoConnectionException $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
@@ -52,9 +50,14 @@ class MongoExtended extends MongoDB
 		return $params;
 	}
 
-	public static function constructConnectionString(array $params, array $init_arr = []): string
+	public static function composeConnectionParams(array $params, array $init_arr = []): array
 	{
-		return "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}";
+		$connection_string = "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}";
+
+		return [
+			$connection_string,
+			$init_arr
+		];
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

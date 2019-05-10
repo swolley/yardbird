@@ -17,7 +17,7 @@ class OCIExtended implements IRelationalConnectable
 	public function __construct(array $params)
 	{
 		$params = self::validateConnectionParams($params);
-		$this->db = oci_connect($params['user'], $params['password'], self::constructConnectionString($params));
+		$this->db = oci_connect(...self::composeConnectionParams($params));
 		if(!$this->db) {
 			$e = oci_error();
     		throw new ConnectionException($e['message'], $e['code']);
@@ -50,7 +50,7 @@ class OCIExtended implements IRelationalConnectable
 		return $params;
 	}
 
-	public static function constructConnectionString(array $params, array $init_Array = []): string
+	public static function composeConnectionParams(array $params, array $init_Array = []): array
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
 
@@ -60,7 +60,7 @@ class OCIExtended implements IRelationalConnectable
 
 		$connect_data_value = $params[$connect_data_name];
 
-		return preg_replace(
+		$connection_string = preg_replace(
 			"/\n|\r|\n\r|\t/",
 			'',
 			"
@@ -73,6 +73,12 @@ class OCIExtended implements IRelationalConnectable
 				)
 			)"
 		);
+
+		return [
+			$params['user'], 
+			$params['password'],
+			$connection_string
+		];
 	}
 
 	public function sql(string $query, $params = [], int $fetchMode = BDFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])

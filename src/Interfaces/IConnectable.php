@@ -6,17 +6,18 @@ interface IConnectable
 	/**
 	 * @param	array	$params	connection parameters
 	 * @return  array	parsed and validated parameters
-	 * @throws	BadMethodCallException	if missing parameters
-	 * @throws	UnexpectedValueException if no requested driver available
+	 * @throws	\BadMethodCallException	if missing parameters
+	 * @throws	\UnexpectedValueException if no requested driver available
 	 */
 	static function validateConnectionParams($params): array;
 
 	/**
 	 * @param	array	$params	connection parameters
-	 * @return	string	connection string with tns for oci driver
-	 * @throws	BadMethodCallException	if missing parameters
+	 * @return	array	parsed and aggregated connection's params
+	 * @throws	\BadMethodCallException		if missing parameters
+	 * @throws	\UnexpectedValueException	if wrong values in parameters
 	 */
-	static function constructConnectionString(array $params, array $init_Array = []): string;
+	static function composeConnectionParams(array $params, array $init_Array = []): array;
 
 	/**
 	 * execute generic query

@@ -5,7 +5,7 @@ interface IRelationalConnectable extends IConnectable
 {
 	static function validateConnectionParams($params): array;
 
-	static function constructConnectionString(array $params, array $init_Array = []): string;
+	static function composeConnectionParams(array $params, array $init_Array = []): array;
 
 	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
