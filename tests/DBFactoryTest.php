@@ -9,6 +9,7 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 
 final class DBFactoryTest extends TestCase
 {
+	///////////////////////////////// UNIT ////////////////////////////////////////////////
 	public function test_checkExtension_should_return_exception_if_empty_string_is_passed(): void
   	{
 		$this->expectException(BadMethodCallException::class);

@@ -30,14 +30,14 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		try {
-			parent::__construct($params['host'], $params['user'], $params['password'], $params['dbName'], $params['port']);
+			parent::__construct(...$params);
 			$this->set_charset($params['charset']);
 		} catch(\ErrorException $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	public static function validateConnectionParams($params): array
+	public static function validateConnectionParams(array $params): array
 	{
 		if (!isset($params['host'], $params['user'], $params['password'])) {
 			throw new BadMethodCallException("host, user, password are required");
@@ -78,11 +78,10 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$query = self::trimCr($query);
+		$query = self::replaceCarriageReturns($query);
 		$params = self::castToArray($params);
 
 		//ksort($params);
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 		self::colonsToQuestionMarksPlaceholders($query, $params);			
 		
 		$st = $this->prepare($query);
@@ -153,11 +152,9 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		return $inserted_id !== '0' ? $inserted_id : $total_inserted > 0;
 	}
 
-	public function update(string $table, $params, string $where = null): bool
+	public function update(string $table, $params, $where = null): bool
 	{
 		$params = self::castToArray($params);
-
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 
 		//TODO how to bind where clause?
 
@@ -186,9 +183,8 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		return $st->num_rows > 0;
 	}
 
-	public function delete(string $table, array $params, string $where = null): bool
+	public function delete(string $table, array $params, $where = null): bool
 	{
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 		if(!is_null($where)) {
 			self::colonsToQuestionMarksPlaceholders($where, $params);
 		}
@@ -217,7 +213,6 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		}
 		$procedure_in_params = rtrim($procedure_in_params, ', ');
 
-		//TODO to undestrand how to handle procedure out params
 		//output params
 		$procedure_out_params = '';
 		foreach ($outParams as $value) {

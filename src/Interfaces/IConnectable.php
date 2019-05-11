@@ -9,7 +9,7 @@ interface IConnectable
 	 * @throws	\BadMethodCallException	if missing parameters
 	 * @throws	\UnexpectedValueException if no requested driver available
 	 */
-	static function validateConnectionParams($params): array;
+	static function validateConnectionParams(array $params): array;
 
 	/**
 	 * @param	array	$params	connection parameters
@@ -55,19 +55,19 @@ interface IConnectable
 	 * execute update query. Where is required, no massive update permitted
 	 * @param   string  		$table	    table name
 	 * @param   array|object	$params     assoc array with placeholder's name and relative values
-	 * @param   string  		$where      where condition. no placeholders permitted
+	 * @param   string|array  	$where      where condition (string for Relational Dbs, array for Mongo). no placeholders permitted
 	 * @return  bool	                   	correct query execution confirm as boolean or error message
 	 */
-	function update(string $table, $params, string $where = null): bool;
+	function update(string $table, $params, $where = null): bool;
 
 	/**
 	 * execute delete query. Where is required, no massive delete permitted
-	 * @param   string  $table	table name
-	 * @param   string  $where	where condition with placeholders
-	 * @param   array   $params	assoc array with placeholder's name and relative values for where condition
-	 * @return  bool			correct query execution confirm as boolean or error message
+	 * @param   string  		$table		table name
+	 * @param   string|array  	$where		where condition (string for Relational Dbs, array for Mongo). no placeholders permitted
+	 * @param   array   		$params		assoc array with placeholder's name and relative values for where condition
+	 * @return  bool						correct query execution confirm as boolean or error message
 	 */
-	function delete(string $table, array $params, string $where = null): bool;
+	function delete(string $table, array $params, $where = null): bool;
 
 	/**
 	 * execute procedure call.

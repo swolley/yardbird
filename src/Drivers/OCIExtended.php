@@ -24,7 +24,7 @@ class OCIExtended implements IRelationalConnectable
 		}
 	}
 
-	public static function validateConnectionParams($params): array
+	public static function validateConnectionParams(array $params): array
 	{
 		if (!isset($params['host'], $params['user'], $params['password'])) {
 			throw new BadMethodCallException("host, user, password are required");
@@ -83,10 +83,9 @@ class OCIExtended implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
-		$query = self::trimCr($query);
+		$query = self::replaceCarriageReturns($query);
 		$params = self::castToArray($params);
 
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 		//TODO add the function developed for mysqli
 
 		//ksort($params);
@@ -157,11 +156,9 @@ class OCIExtended implements IRelationalConnectable
 		return $inserted_id;
 	}
 
-	public function update(string $table, $params, string $where = null): bool
+	public function update(string $table, $params, $where = null): bool
 	{
 		$params = self::castToArray($params);
-
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 
 		//TODO how to bind where clause?
 
@@ -186,10 +183,8 @@ class OCIExtended implements IRelationalConnectable
 		return true;
 	}
 
-	public function delete(string $table, array $params, string $where = null): bool
+	public function delete(string $table, array $params, $where = null): bool
 	{
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
-		
 		//ksort($params);
 		$st = oci_parse($this->db, "DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
 		if(!self::bindParams($params, $st)) {

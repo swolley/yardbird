@@ -18,7 +18,7 @@ final class DBFactory
 	const FETCH_CLASS = 8;
 	const GETCH_PROPS_LATE = 1048576;
 
-	public function __invoke(array $connectionParameters)
+	public function __invoke(array $connectionParameters): IConnectable
 	{
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) {
 			throw new BadMethodCallException("Connection parameters are required");

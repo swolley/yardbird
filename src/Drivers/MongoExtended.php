@@ -18,7 +18,7 @@ use MongoDB\Driver\Exception as MongoException;
 use MongoDB\Driver\MongoConnectionException;
 use MongoLog;
 
-class MongoExtended extends MongoDB
+class MongoExtended extends MongoDB implements IConnectable
 {
 	use TraitUtils;
 	use TraitQueryBuilder;
@@ -39,7 +39,7 @@ class MongoExtended extends MongoDB
 		}
 	}
 
-	public static function validateConnectionParams($params): array
+	public static function validateConnectionParams(array $params): array
 	{
 		//string $host, int $port, string $user, string $pass, string $dbName
 		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) {
@@ -98,7 +98,6 @@ class MongoExtended extends MongoDB
 		}
 	}
 
-	//function select(string $query, array $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
 	public function select(string $collection, array $search = [], array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
@@ -126,7 +125,7 @@ class MongoExtended extends MongoDB
 	 * @param   boolean $ignore         performes an 'insert ignore' query
 	 * @return  mixed                   new row id or error message
 	 */
-	public function insert(string $collection, $params = [], bool $ignore = false)
+	public function insert(string $collection, $params, bool $ignore = false)
 	{
 		$params = self::castToArray($params);
 		try {
@@ -145,9 +144,17 @@ class MongoExtended extends MongoDB
 	 * @param   array   $where          where condition. no placeholders permitted
 	 * @return  mixed                   correct query execution confirm as boolean or error message
 	 */
-	//function update(string $table, $params, string $where);
-	public function update(string $collection, $params = [], array $where = [])
+
+	public function update(string $collection, $params, $where = null)
 	{
+		if(is_null($where)) {
+			$where = [];
+		}
+
+		if(gettype($where) !== 'array') {
+			throw new UnexpectedValueException('$where param must be of type array');
+		}
+
 		$params = self::castToArray($params);
 		try {
 			self::bindParams($params);
@@ -165,10 +172,19 @@ class MongoExtended extends MongoDB
 	 * @param   string  $collection     collection name
 	 * @param   array   $where          where condition with placeholders
 	 * @return  mixed                   correct query execution confirm as boolean or error message
-	 */
-	//function delete(string $table, string $where, array $params);
-	public function delete(string $collection, array $where = [])
+	*/
+	
+	//FIXME not compatible whit IConnectable interface
+	public function delete(string $collection, $where = null)
 	{
+		if(is_null($where)) {
+			$where = [];
+		}
+
+		if(gettype($where) !== 'array') {
+			throw new UnexpectedValueException('$where param must be of type array');
+		}
+
 		try {
 			self::bindParams($where);
 			$response = $this->{$this->dbName}->{$collection}->deleteMany($where);
@@ -197,6 +213,24 @@ class MongoExtended extends MongoDB
 		}
 	}
 
+	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	{
+		switch ($fetchMode) {
+			case DBFactory::FETCH_ASSOC:
+				$st->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
+				break;
+			case DBFactory::FETCH_OBJ:
+				$st->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
+				break;
+				//case DBFactory::FETCH_CLASS:
+				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
+				//	break;
+			default:
+				throw new MongoException\CommandException('Can\'t fetch. Only Object or Associative Array mode accepted');
+		}
+		return $st->toArray();
+	}
+
 	public static function bindParams(array &$params, &$st = null): bool
 	{
 		foreach ($params as &$value) {
@@ -218,21 +252,4 @@ class MongoExtended extends MongoDB
 		return true;
 	}
 
-	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
-	{
-		switch ($fetchMode) {
-			case DBFactory::FETCH_ASSOC:
-				$st->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
-				break;
-			case DBFactory::FETCH_OBJ:
-				$st->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
-				break;
-				//case DBFactory::FETCH_CLASS:
-				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
-				//	break;
-			default:
-				throw new MongoException\CommandException('Can\'t fetch. Only Object or Associative Array mode accepted');
-		}
-		return $st->toArray();
-	}
 }

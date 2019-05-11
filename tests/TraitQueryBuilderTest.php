@@ -11,6 +11,7 @@ final class TraitQueryBuilderTest extends TestCase
 {
 	use TraitQueryBuilder;
 
+	///////////////////////////////// UNIT ////////////////////////////////////////////////
 	public function test_createQuery_should_return_exception_if_not_recognized_a_valid_query(): void
   	{
 		$this->expectException(UnexpectedValueException::class);
@@ -19,13 +20,12 @@ final class TraitQueryBuilderTest extends TestCase
 
 	public function test_createQuery_should_return_array_if_parameters_are_correct(): void
   	{
-		$response = [];
 		$query = $this->createQuery('SELECT id FROM table');
 		$this->assertEquals('array', gettype($query));
-		//$this->assertEquals('select', $query['type']);
-		//$this->assertEquals('table', $query['table']);
-		//$this->assertEquals(['id'], $query['params']);
-		//$this->assertEquals(['id' => ['$eq' => 1]], $query['options']);
+		$this->assertEquals('select', $query['type']);
+		$this->assertEquals('table', $query['table']);
+		$this->assertEquals(['id'], $query['params']);
+		$this->assertTrue(empty($query['options']));
 	}
 
 	public function test_parseInsert_should_throw_exception_if_any_syntax_error(): void

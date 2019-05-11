@@ -31,7 +31,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	}
 
-	public static function validateConnectionParams($params): array
+	public static function validateConnectionParams(array $params): array
 	{
 		if (!in_array($params['driver'], self::getAvailableDrivers())) {
 			throw new UnexpectedValueException("No {$params['driver']} driver available");
@@ -88,10 +88,9 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$query = self::trimCr($query);
+		$query = self::replaceCarriageReturns($query);
 		$params = self::castToArray($params);
 
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 		//TODO add the function developed for mysqli
 		
 		try {
@@ -140,8 +139,6 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	{
 		$params = self::castToArray($params);
 
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
-
 		try {
 			//ksort($params);
 			$keys_list = array_keys($params);
@@ -185,12 +182,14 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public function update(string $table, $params, string $where = null): bool
+	public function update(string $table, $params, $where = null): bool
 	{
 		$params = self::castToArray($params);
-		
-		//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 
+		if(gettype($where) !== 'string') {
+			throw new UnexpectedValueException('$where param must be of type string');
+		}
+		
 		//TODO how to bind where clause?
 
 		try {
@@ -216,10 +215,13 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public function delete(string $table, array $params, string $where = null): bool
+	public function delete(string $table, array $params, $where = null): bool
 	{
+		if(gettype($where) !== 'string') {
+			throw new UnexpectedValueException('$where param must be of type string');
+		}
+
 		try {
-			//TODO it should be tested that if colon placeholders are passed the $params array needs to be associative, either simple array can be accepted
 			//ksort($params);
 			$st = $this->prepare("DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
 			if(!self::bindParams($params, $st)) {
@@ -341,7 +343,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		$connect_data_value = $params[$connect_data_name];
 
 		$tns = preg_replace(
-			"/\n|\r|\n\r|\t/",
+			"/\n\r|\n|\r|\n\r|\t|\s/",
 			'',
 			"
 			(DESCRIPTION = 

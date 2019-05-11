@@ -11,6 +11,7 @@ final class TraitUtilsTest extends TestCase
 {
 	use TraitUtils;
 
+	///////////////////////////////// UNIT ////////////////////////////////////////////////
 	public function test_castToArray_should_return_exception_if_param_is_not_array_or_object(): void
   	{
 		$this->expectException(UnexpectedValueException::class);
@@ -44,5 +45,34 @@ final class TraitUtilsTest extends TestCase
 		$obj = new StdClass();
 		$obj->field = 'test';
 		$this->assertEquals($obj, $this->castToObject($obj));
+	}
+
+	public function test_replaceCarriageReturns_should_return_replaced_string(): void
+	{
+		$this->assertEquals('string withouth cr', $this->replaceCarriageReturns("string\nwithouth\ncr"));
+	}
+
+	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_both_colon_and_questionmark_placeholders_found(): void
+	{
+		$this->expectException(UnexpectedValueException::class);
+		$query = ':value, ?';
+		$params = ['value' => 1];
+		$this->colonsToQuestionMarksPlaceholders($query, $params);
+	}
+
+	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_not_same_number_of_placeholders_and_params(): void
+	{
+		$this->expectException(BadMethodCallException::class);
+		$query = ':value1, :value2';
+		$params = ['value1' => 1];
+		$this->colonsToQuestionMarksPlaceholders($query, $params);
+	}
+
+	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_no_corresponding_params_and_placeholders(): void
+	{
+		$this->expectException(BadMethodCallException::class);
+		$query = ':value1, :value2';
+		$params = ['value3' => 1];
+		$this->colonsToQuestionMarksPlaceholders($query, $params);
 	}
 }

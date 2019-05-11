@@ -3,7 +3,7 @@ namespace Swolley\Database\Interfaces;
 
 interface IRelationalConnectable extends IConnectable
 {
-	static function validateConnectionParams($params): array;
+	static function validateConnectionParams(array $params): array;
 
 	static function composeConnectionParams(array $params, array $init_Array = []): array;
 
@@ -13,9 +13,9 @@ interface IRelationalConnectable extends IConnectable
 
 	function insert(string $table, $params, bool $ignore = false);
 
-	function update(string $table, $params, string $where = null): bool;
+	function update(string $table, $params, $where = null): bool;
 
-	function delete(string $table, array $params, string $where = null): bool;
+	function delete(string $table, array $params, $where = null): bool;
 
 	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
