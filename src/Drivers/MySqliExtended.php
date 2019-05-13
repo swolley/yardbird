@@ -8,6 +8,7 @@ use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\Database\Utils\TraitQueryBuilder as QueryBuilder;
 
 set_error_handler(function($errno, $errstr, $errfile, $errline, array $errcontext) {
     // error was suppressed with the @-operator
@@ -79,10 +80,11 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$query = self::replaceCarriageReturns($query);
+		$query = QueryBuilder::operatorsToStandardSyntax($query);
 		$params = self::castToArray($params);
 
 		//ksort($params);
-		self::colonsToQuestionMarksPlaceholders($query, $params);			
+		QueryBuilder::colonsToQuestionMarksPlaceholders($query, $params);			
 		
 		$st = $this->prepare($query);
 		if(!$st) {
@@ -155,6 +157,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	public function update(string $table, $params, $where = null): bool
 	{
 		$params = self::castToArray($params);
+		$where = QueryBuilder::operatorsToStandardSyntax($where);
 
 		//TODO how to bind where clause?
 
@@ -166,7 +169,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		$values = rtrim($values, ', ');
 
 		if(!is_null($where)) {
-			self::colonsToQuestionMarksPlaceholders($where, $params);
+			QueryBuilder::colonsToQuestionMarksPlaceholders($where, $params);
 		}
 
 		$st = $this->prepare("UPDATE `{$table}` SET {$values}" . (!is_null($where) ? " WHERE {$where}" : ''));
@@ -186,7 +189,8 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	public function delete(string $table, array $params, $where = null): bool
 	{
 		if(!is_null($where)) {
-			self::colonsToQuestionMarksPlaceholders($where, $params);
+			$where = QueryBuilder::operatorsToStandardSyntax($where);
+			QueryBuilder::colonsToQuestionMarksPlaceholders($where, $params);
 		}
 
 		//ksort($params);

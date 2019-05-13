@@ -4,6 +4,7 @@ namespace Swolley\Database\Drivers;
 use Swolley\Database\DBFactory;
 use Swolley\Database\Interfaces\IRelationalConnectable;
 use Swolley\Database\Utils\TraitUtils;
+use Swolley\Database\Utils\TraitQueryBuilder as QueryBuilder;
 use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
@@ -88,8 +89,12 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$query = self::replaceCarriageReturns($query);
 		$params = self::castToArray($params);
+		$query = self::replaceCarriageReturns($query);
+		if($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci'){
+			//because in postgres && has a different meaning than OR
+			$query = QueryBuilder::operatorsToStandardSyntax($query);
+		}
 
 		//TODO add the function developed for mysqli
 		
@@ -186,8 +191,13 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	{
 		$params = self::castToArray($params);
 
-		if(gettype($where) !== 'string') {
+		if(!is_null($where) && gettype($where) !== 'string') {
 			throw new UnexpectedValueException('$where param must be of type string');
+		} elseif(!is_null($where)) {
+			if($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci'){
+				//because in postgres && has a different meaning than OR
+				$where = QueryBuilder::operatorsToStandardSyntax($where);
+			}
 		}
 		
 		//TODO how to bind where clause?
@@ -217,8 +227,13 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function delete(string $table, array $params, $where = null): bool
 	{
-		if(gettype($where) !== 'string') {
+		if(!is_null($where) && gettype($where) !== 'string') {
 			throw new UnexpectedValueException('$where param must be of type string');
+		} elseif(!is_null($where)) {
+			if($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci'){
+				//because in postgres && has a different meaning than OR
+				$where = QueryBuilder::operatorsToStandardSyntax($where);
+			}
 		}
 
 		try {

@@ -478,4 +478,47 @@ trait TraitQueryBuilder
 			return $value;
 		}
 	}
+
+	public static function operatorsToStandardSyntax(string $query): string
+	{
+		$query = preg_replace("/\s?&&\s?/", ' AND ', $query);
+		$query = preg_replace("/\s?\|\|\s?/", ' OR ', $query);
+		$query = preg_replace("/\s?!=\s?/", '<>', $query);
+		return $query;
+	}
+
+	public static function colonsToQuestionMarksPlaceholders(string &$query, array &$params): void
+	{
+		$total_params = count($params);
+		$total_questionmark_placeholders = substr_count($query, '?');
+		$colon_placeholders = [];
+		preg_match_all('/(:\w+)/i', $query, $colon_placeholders);
+		$colon_placeholders = array_shift($colon_placeholders);
+		$total_colon_placeholders = count($colon_placeholders);
+
+		if($total_colon_placeholders > 0 && $total_questionmark_placeholders > 0) {
+			throw new UnexpectedValueException('Possible incongruence in query placeholders');
+		}
+
+		if(($total_colon_placeholders === 0 && $total_questionmark_placeholders !== $total_params) || ($total_questionmark_placeholders === 0 && $total_colon_placeholders !== $total_params)) {
+			throw new BadMethodCallException('Number of params and placeholders must be the same');
+		}
+		
+		//changes colon placeholders found they are switched to question marks because of mysqli bind restruction
+		if($total_questionmark_placeholders === 0) {
+			$reordered_params = [];
+			foreach($colon_placeholders as $param) {
+				$trimmed = ltrim($param, ':');
+				if(array_key_exists($trimmed, $params)) {
+					$reordered_params[] = $params[$trimmed];
+					$query = str_replace($param, '?', $query);
+				} else {
+					throw new BadMethodCallException("`$param` not found in parameters list");
+				}
+			}
+
+			$params = $reordered_params;
+			unset($reordered_params);
+		}
+	}
 }

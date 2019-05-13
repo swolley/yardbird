@@ -178,4 +178,35 @@ final class TraitQueryBuilderTest extends TestCase
 		$response = 0;
 		$this->assertEquals($response, $casted);
 	}
+
+	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_both_colon_and_questionmark_placeholders_found(): void
+	{
+		$this->expectException(UnexpectedValueException::class);
+		$query = ':value, ?';
+		$params = ['value' => 1];
+		$this->colonsToQuestionMarksPlaceholders($query, $params);
+	}
+
+	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_not_same_number_of_placeholders_and_params(): void
+	{
+		$this->expectException(BadMethodCallException::class);
+		$query = ':value1, :value2';
+		$params = ['value1' => 1];
+		$this->colonsToQuestionMarksPlaceholders($query, $params);
+	}
+
+	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_no_corresponding_params_and_placeholders(): void
+	{
+		$this->expectException(BadMethodCallException::class);
+		$query = ':value1, :value2';
+		$params = ['value3' => 1];
+		$this->colonsToQuestionMarksPlaceholders($query, $params);
+	}
+
+	public function test_operatorsToStandardSyntax_should_return_replaced_string(): void
+	{
+		$query = 'SELECT * FROM table WHERE value1=1&&value2=2 || value3=3 AND value4!=4';
+		$expected = 'SELECT * FROM table WHERE value1=1 AND value2=2 OR value3=3 AND value4<>4';
+		$this->assertEquals($expected, $this->operatorsToStandardSyntax($query));
+	}
 }

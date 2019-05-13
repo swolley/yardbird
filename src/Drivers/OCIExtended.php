@@ -2,6 +2,7 @@
 namespace Swolley\Database\Drivers;
 
 use Swolley\Database\DBFactory;
+use Swolley\Database\Utils\TraitQueryBuilder as QueryBuilder;
 use Swolley\Database\Interfaces\IRelationalConnectable;
 use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
@@ -159,6 +160,10 @@ class OCIExtended implements IRelationalConnectable
 	public function update(string $table, $params, $where = null): bool
 	{
 		$params = self::castToArray($params);
+		
+		if(!is_null($where) && gettype($where) !== 'string') {
+			throw new UnexpectedValueException('$where param must be of type string');
+		}
 
 		//TODO how to bind where clause?
 
@@ -185,6 +190,10 @@ class OCIExtended implements IRelationalConnectable
 
 	public function delete(string $table, array $params, $where = null): bool
 	{
+		if(!is_null($where) && gettype($where) !== 'string') {
+			throw new UnexpectedValueException('$where param must be of type string');
+		}
+
 		//ksort($params);
 		$st = oci_parse($this->db, "DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
 		if(!self::bindParams($params, $st)) {
