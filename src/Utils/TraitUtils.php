@@ -36,6 +36,6 @@ trait TraitUtils
 
 	protected static function replaceCarriageReturns(string $query): string
 	{
-		return preg_replace('(/\n\r|\n|\r|\t/)', ' ', $query);
+		return preg_replace('/\n\r|\n|\r|\t/', ' ', $query);
 	}
 }
