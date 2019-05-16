@@ -16,7 +16,7 @@ final class DBFactory
 	const FETCH_OBJ = 5;
 	const FETCH_COLUMN = 7;
 	const FETCH_CLASS = 8;
-	const GETCH_PROPS_LATE = 1048576;
+	const FETCH_PROPS_LATE = 1048576;
 
 	public function __invoke(array $connectionParameters): IConnectable
 	{
