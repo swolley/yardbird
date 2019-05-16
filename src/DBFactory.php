@@ -70,7 +70,7 @@ final class DBFactory
 			case 'sqlsrv':
 			case '4d':
 			case 'mysql':
-				return extension_loaded('pdo') ? 'pdo' : $driver === 'mysql' && extension_loaded('mysqli') ? 'mysqli' : null;
+				return extension_loaded('pdo') ? 'pdo' : ($driver === 'mysql' && extension_loaded('mysqli') ? 'mysqli' : null);
 			case 'mysqli': 
 				return extension_loaded('mysqli') ? 'mysqli' : null;
 			default:
