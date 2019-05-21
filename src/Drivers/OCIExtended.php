@@ -2,6 +2,7 @@
 namespace Swolley\Database\Drivers;
 
 use Swolley\Database\DBFactory;
+use Swolley\Database\Utils\TraitUtils;
 use Swolley\Database\Utils\TraitQueryBuilder as QueryBuilder;
 use Swolley\Database\Interfaces\IRelationalConnectable;
 use Swolley\Database\Exceptions\ConnectionException;
@@ -18,10 +19,11 @@ class OCIExtended implements IRelationalConnectable
 	public function __construct(array $params)
 	{
 		$params = self::validateConnectionParams($params);
-		$this->db = oci_connect(...self::composeConnectionParams($params));
-		if(!$this->db) {
+		try {
+			$this->db = oci_connect(...self::composeConnectionParams($params));
+		} catch(\Throwable $e) {
 			$e = oci_error();
-    		throw new ConnectionException($e['message'], $e['code']);
+			throw new ConnectionException($e['message'], $e['code']);
 		}
 	}
 
@@ -53,7 +55,7 @@ class OCIExtended implements IRelationalConnectable
 
 	public static function composeConnectionParams(array $params, array $init_Array = []): array
 	{
-		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
+		$connect_data_name = isset($params['sid']) ? 'sid' : (isset($params['serviceName']) ? 'serviceName' : null);
 
 		if (is_null($connect_data_name)) {
 			throw new BadMethodCallException("Missing paramters");
@@ -82,7 +84,7 @@ class OCIExtended implements IRelationalConnectable
 		];
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$query = self::replaceCarriageReturns($query);
 		$params = self::castToArray($params);
@@ -104,7 +106,7 @@ class OCIExtended implements IRelationalConnectable
 		return $response;
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$stringed_fields = join(', ', $fields);
 
@@ -188,7 +190,7 @@ class OCIExtended implements IRelationalConnectable
 		return true;
 	}
 
-	public function delete(string $table, array $params, $where = null): bool
+	public function delete(string $table, $where = null, array $params = null): bool
 	{
 		if(!is_null($where) && gettype($where) !== 'string') {
 			throw new UnexpectedValueException('$where param must be of type string');
@@ -202,14 +204,14 @@ class OCIExtended implements IRelationalConnectable
 
 		if (!oci_execute($st)) {
 			$error = oci_error($st);
-			throw new OCIException($error['message'], $error['code']);
+			throw new QueryException($error['message'], $error['code']);
 		}
 
 		oci_free_statement($st);
 		return true;
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		//input params
 		$procedure_in_params = '';
@@ -252,7 +254,7 @@ class OCIExtended implements IRelationalConnectable
 		return $response;
 	}
 
-	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$response = [];
 		if ($fetchMode === DBFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
@@ -288,7 +290,7 @@ class OCIExtended implements IRelationalConnectable
 		return true;
 	}
 
-	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000)
+	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000): void
 	{
 		if (gettype($params) === 'array' && gettype($outResult) === 'array') {
 			foreach ($params as $value) {

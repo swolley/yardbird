@@ -31,7 +31,7 @@ final class TraitUtilsTest extends TestCase
 	public function test_castToObject_should_return_exception_if_param_is_not_array_or_object(): void
   	{
 		$this->expectException(UnexpectedValueException::class);
-		$this->castToArray('invalid');
+		$this->castToObject('invalid');
 	}
 
 	public function test_castToObject_should_return_object_if_array_passed(): void

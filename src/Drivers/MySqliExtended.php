@@ -10,16 +10,6 @@ use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 use Swolley\Database\Utils\TraitQueryBuilder as QueryBuilder;
 
-set_error_handler(function($errno, $errstr, $errfile, $errline, array $errcontext) {
-    // error was suppressed with the @-operator
-    if (0 === error_reporting()) {
-        return false;
-    }
-
-    throw new \ErrorException($errstr, 0, $errno, $errfile, $errline);
-});
-
-
 class MySqliExtended extends \mysqli implements IRelationalConnectable
 {
 	use TraitUtils;
@@ -31,9 +21,9 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		try {
-			parent::__construct(...$params);
+			parent::__construct(...self::composeConnectionParams($params));
 			$this->set_charset($params['charset']);
-		} catch(\ErrorException $e) {
+		} catch(\Throwable $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
 	}
@@ -186,7 +176,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		return $st->num_rows > 0;
 	}
 
-	public function delete(string $table, array $params, $where = null): bool
+	public function delete(string $table, $where = null, array $params = null): bool
 	{
 		if(!is_null($where)) {
 			$where = QueryBuilder::operatorsToStandardSyntax($where);

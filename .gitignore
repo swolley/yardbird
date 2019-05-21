@@ -2,3 +2,4 @@ vendor
 .vscode
 index.php
 .phpunit.result.cache
+codecoverage

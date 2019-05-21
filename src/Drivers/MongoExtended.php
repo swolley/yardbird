@@ -15,7 +15,6 @@ use MongoDB\Driver\Command as MongoCmd;
 use MongoDB\Driver\Manager as MongoManager;
 use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
-use MongoDB\Driver\MongoConnectionException;
 use MongoLog;
 
 class MongoExtended extends MongoDB implements IConnectable
@@ -32,9 +31,11 @@ class MongoExtended extends MongoDB implements IConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		try{
-			parent::__construct(...self::constructConnectionString($params, [ 'authSource' => 'admin' ]));
+			parent::__construct(...self::composeConnectionParams($params, [ 'authSource' => 'admin' ]));
+			$this->startSession();
+			//$this->endSession();
 			$this->dbName = $params['dbName'];
-		} catch(MongoConnectionException $e) {
+		} catch(\Exception $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
 	}
@@ -44,8 +45,6 @@ class MongoExtended extends MongoDB implements IConnectable
 		//string $host, int $port, string $user, string $pass, string $dbName
 		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) {
 			throw new BadMethodCallException("host, user, password, dbName are required");
-		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password']) || empty($params['dbName'])) {
-			throw new UnexpectedValueException("host, user, password, dbName can't be empty");
 		}
 		return $params;
 	}
@@ -118,13 +117,6 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	/**
-	 * execute insert query
-	 * @param   string  $collection     collection name
-	 * @param   array|object   $params	assoc array with placeholder's name and relative values
-	 * @param   boolean $ignore         performes an 'insert ignore' query
-	 * @return  mixed                   new row id or error message
-	 */
 	public function insert(string $collection, $params, bool $ignore = false)
 	{
 		$params = self::castToArray($params);
@@ -137,15 +129,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	/**
-	 * execute update query. Where is required, no massive update permitted
-	 * @param   string  $collection     collection name
-	 * @param   array|object   $params         assoc array with placeholder's name and relative values
-	 * @param   array   $where          where condition. no placeholders permitted
-	 * @return  mixed                   correct query execution confirm as boolean or error message
-	 */
-
-	public function update(string $collection, $params, $where = null)
+	public function update(string $collection, $params, $where = null): bool
 	{
 		if(is_null($where)) {
 			$where = [];
@@ -161,21 +145,13 @@ class MongoExtended extends MongoDB implements IConnectable
 			self::bindParams($where);
 
 			$response = $this->{$this->dbName}->{$collection}->updateMany($where, ['$set' => $params], ['upsert' => FALSE]);
-			return $response->getModifiedCount();
+			return $response->getModifiedCount() > 0;
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	/**
-	 * execute delete query. Where is required, no massive delete permitted
-	 * @param   string  $collection     collection name
-	 * @param   array   $where          where condition with placeholders
-	 * @return  mixed                   correct query execution confirm as boolean or error message
-	*/
-	
-	//FIXME not compatible whit IConnectable interface
-	public function delete(string $collection, $where = null)
+	public function delete(string $collection, $where = null, array $params = null): bool
 	{
 		if(is_null($where)) {
 			$where = [];
@@ -188,25 +164,20 @@ class MongoExtended extends MongoDB implements IConnectable
 		try {
 			self::bindParams($where);
 			$response = $this->{$this->dbName}->{$collection}->deleteMany($where);
-			return $response->getDeletedCount() ? TRUE : FALSE;
+			return $response->getDeletedCount() > 0;
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	/**
-	 * execute stored procedure
-	 * @param   string  $name           stored procedure name
-	 * @param   array   $params         (optional) assoc array with paramter's names and relative values
-	 * @return  mixed                   stored procedure result or error message
-	 */
-	public function procedure(string $name, array $inParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($inParams);
 			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($inParams)) . ');');
 			$command = new MongoCmd(['eval' => $jscode]);
 			$st = $this->getManager()->executeCommand($this->dbName, $command);
+			
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());

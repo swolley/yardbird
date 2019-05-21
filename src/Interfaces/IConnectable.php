@@ -67,7 +67,7 @@ interface IConnectable
 	 * @param   array   		$params		assoc array with placeholder's name and relative values for where condition
 	 * @return  bool						correct query execution confirm as boolean or error message
 	 */
-	function delete(string $table, array $params, $where = null): bool;
+	function delete(string $table, $where = null, array $params): bool;
 
 	/**
 	 * execute procedure call.
@@ -79,7 +79,7 @@ interface IConnectable
 	 * @param	int|string	$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return mixed									response array or error message
 	 */
-	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): ?array;
 
 	/**
 	 * fetch and parse query results

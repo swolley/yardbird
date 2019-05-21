@@ -225,7 +225,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public function delete(string $table, array $params, $where = null): bool
+	public function delete(string $table, $where = null, array $params = null): bool
 	{
 		if(!is_null($where) && gettype($where) !== 'string') {
 			throw new UnexpectedValueException('$where param must be of type string');

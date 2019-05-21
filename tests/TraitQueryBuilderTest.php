@@ -26,10 +26,46 @@ final class TraitQueryBuilderTest extends TestCase
 		$this->assertEquals('table', $query['table']);
 		$this->assertEquals(['id'], $query['params']);
 		$this->assertTrue(empty($query['options']));
+		unset($query);
+
+		$query = $this->createQuery('INSERT INTO table(a, b) VALUES(:a, :b)');
+		$this->assertEquals('array', gettype($query));
+		$this->assertEquals('insert', $query['type']);
+		$this->assertEquals('table', $query['table']);
+		$this->assertEquals(['a' => ':a', 'b' => ':b'], $query['params']);
+		$this->assertTrue(empty($query['options']));
+		unset($query);
+
+		$query = $this->createQuery('UPDATE table SET a=:a, b=:b');
+		$this->assertEquals('array', gettype($query));
+		$this->assertEquals('update', $query['type']);
+		$this->assertEquals('table', $query['table']);
+		$this->assertEquals(['a' => 'a', 'b' => 'b'], $query['params']);
+		$this->assertTrue(empty($query['options']));
+		unset($query);
+
+		$query = $this->createQuery('DELETE FROM table');
+		$this->assertEquals('array', gettype($query));
+		$this->assertEquals('delete', $query['type']);
+		$this->assertEquals('table', $query['table']);
+		$this->assertEquals([], $query['params']);
+		$this->assertTrue(empty($query['options']));
+		unset($query);
+
+		$query = $this->createQuery('CALL procedure()');
+		$this->assertEquals('array', gettype($query));
+		$this->assertEquals('procedure', $query['type']);
+		$this->assertEquals('procedure', $query['name']);
+		$this->assertEquals([], $query['params']);
+		$this->assertTrue(empty($query['options']));
+		unset($query);
 	}
 
 	public function test_parseInsert_should_throw_exception_if_any_syntax_error(): void
 	{
+		$this->expectException(UnexpectedValueException::class);
+		$this->createQuery('INSERT table');
+
 		$this->expectException(UnexpectedValueException::class);
 		$this->createQuery('INSERT INTO table');
 	}
@@ -42,17 +78,17 @@ final class TraitQueryBuilderTest extends TestCase
 
 	public function test_parseInsert_shold_return_array_if_parameters_are_correct(): void
 	{
-		$query = $this->parseInsert('INSERT INTO table (`column1`) VALUES(:column)');
+		$query = $this->parseInsert('INSERT IGNORE INTO table (`column1`) VALUES(:column)');
 		$response = [
 			'type' => 'insert',
 			'table' => 'table',
 			'params' => ['column1' => ':column'],
-			'ignore' => false
+			'ignore' => true
 		];
 		$this->assertEquals($response, $query);
 	}
 	
-	public function test_parseDelete_should_throw_exception_if_any_sintax_error(): void
+	public function test_parseDelete_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
 		$this->parseDelete('DELETE FROM table WHERE');
@@ -60,16 +96,16 @@ final class TraitQueryBuilderTest extends TestCase
 
 	public function test_parseDelete_shold_return_array_if_parameters_are_correct(): void
 	{
-		$query = $this->parseDelete('DELETE FROM `table` WHERE id=1');
+		$query = $this->parseDelete('DELETE FROM `table` WHERE (id<1 AND c<>2)');
 		$response = [
 			'type' => 'delete',
 			'table' => 'table',
-			'params' => ['id' => ['$eq' => 1]]
+			'params' => [['id' => ['$lt' => 1]], 'AND', ['c' => ['$ne' => 2]]]
 		];
 		$this->assertEquals($response, $query);
 	}
 
-	public function test_parseUpdate_should_throw_exception_if_any_sintax_error(): void
+	public function test_parseUpdate_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
 		$this->parseUpdate("UPDATE WHERE `column` != 'value'");
@@ -87,7 +123,7 @@ final class TraitQueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
-	public function test_parseSelect_should_throw_exception_if_any_sintax_error(): void
+	public function test_parseSelect_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
 		$this->parseSelect("SELECT INTO `table` WHERE `column` > 'value'");
@@ -114,7 +150,7 @@ final class TraitQueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
-	public function test_parseProcedure_should_throw_exception_if_any_sintax_error(): void
+	public function test_parseProcedure_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(BadMethodCallException::class);
 		$this->parseProcedure("CALL procedure_name (:value1, :value2)");
@@ -205,8 +241,8 @@ final class TraitQueryBuilderTest extends TestCase
 
 	public function test_operatorsToStandardSyntax_should_return_replaced_string(): void
 	{
-		$query = 'SELECT * FROM table WHERE value1=1&&value2=2 || value3=3 AND value4!=4';
-		$expected = 'SELECT * FROM table WHERE value1=1 AND value2=2 OR value3=3 AND value4<>4';
+		$query = 'SELECT * FROM table WHERE value1<=1&&value2>=2 || value3=3 AND value4!=4';
+		$expected = 'SELECT * FROM table WHERE value1<=1 AND value2>=2 OR value3=3 AND value4<>4';
 		$this->assertEquals($expected, $this->operatorsToStandardSyntax($query));
 	}
 }

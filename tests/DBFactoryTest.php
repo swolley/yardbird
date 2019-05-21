@@ -3,9 +3,12 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 use Swolley\Database\DBFactory;
+use Swolley\Database\Interfaces\IConnectable;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\Database\Drivers\MySqliExtended;
+use Swolley\Database\Drivers\PDOExtended;
 
 final class DBFactoryTest extends TestCase
 {
@@ -40,9 +43,4 @@ final class DBFactoryTest extends TestCase
 		$this->expectException(\Exception::class);
 		(new DBFactory)(['driver' => 'invalid']);
 	}
-
-	/*public function test_invoke_class_should_return_iConnectable_instance_if_connection_established(): void
-	{
-		$connection = (new DBFactory)('');
-	}*/
 }
