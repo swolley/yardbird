@@ -126,7 +126,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			$stringed_where = rtrim($values, 'AND ');
 
-			$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} WHERE {$stringed_where}");
+			$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} " . (!empty($stringed_where) ? "WHERE {$stringed_where}" : ''));
 			if(!self::bindParams($where, $st)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
 			}

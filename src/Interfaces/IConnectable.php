@@ -34,13 +34,13 @@ interface IConnectable
 	 * with sql drivers this is a very simple and limited SELECT query builder whit list of fields and AND-separated where clauses
 	 * @param   string  		$table      				table name
 	 * @param   array			$params     				assoc array with columns'name 
-	 * @param   array			$where     					assoc array with placeholder's name and relative values. Logical separator between elements is AND
+	 * @param   array|string	$where     					string query part or assoc array with placeholder's name and relative values. Logical separator between elements will be AND
 	 * @param 	int     		$fetchMode     				(optional) PDO fetch mode. default = associative array
 	 * @param	int|string		$fetchModeParam				(optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	function select(string $table, array $params = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+	function select(string $table, array $params = [], $where = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
 	/**
 	 * execute insert query

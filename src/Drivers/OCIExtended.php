@@ -117,7 +117,7 @@ class OCIExtended implements IRelationalConnectable
 		}
 		$stringed_where = rtrim($values, 'AND ');
 
-		$st = oci_parse($this->db, "SELECT {$stringed_fields} FROM {$table} WHERE {$stringed_where}");
+		$st = oci_parse($this->db, "SELECT {$stringed_fields} FROM {$table} " . (!empty($stringed_where) ? "WHERE {$stringed_where}" : ''));
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}

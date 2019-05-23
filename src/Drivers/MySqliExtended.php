@@ -103,7 +103,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		}
 		$stringed_where = rtrim($values, 'AND ');
 
-		$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} WHERE {$stringed_where}");
+		$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} " . (!empty($stringed_where) ? "WHERE {$stringed_where}" : ''));
 		if(!$st) {
 			throw new QueryException("Cannot prepare query. Check the syntax.");
 		}

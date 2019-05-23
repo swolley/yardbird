@@ -97,7 +97,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	public function select(string $collection, array $search = [], array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $collection, array $search = [], $options = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($search);
@@ -106,7 +106,7 @@ class MongoExtended extends MongoDB implements IConnectable
 				$param = filter_var($param);
 			}*/
 
-			$st = $this->{$this->dbName}->{$collection}->find($search, $options);
+			$st = $this->{$this->dbName}->{$collection}->find($search, $options ?? []);
 			if (array_key_exists('count', $options)) {
 				return $st->count();
 			} else {
