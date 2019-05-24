@@ -1,0 +1,43 @@
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+DELETE FROM `app_settings` WHERE pippo=:pippo AND ((uno=:uno OR due!=:due) AND tre<>:tre) AND quattro<:quattro AND cinque<=:cinque AND sei>:sei AND sette>=:sette
+[ 'pippo' => 1, 'uno' => "unoparsed", 'due' => "dueparsed", 'tre' => 3, 'quattro' => 4, 'cinque' => 'cinque', 'sei' => true, 'sette' => null ]
+
+db.app_settings.deleteMany({
+	"$and": [
+		{
+			"pippo": "pippo"  
+		},
+		{
+			"$and": [
+				{
+					"$or": [
+						{
+							"uno": 1 
+						},
+						{
+							"due": { "$ne": 2 }
+						}
+					]
+				},
+				{
+					"tre": { "$ne": 3  }
+				},
+			]
+		},
+		{
+			"quattro": { "$lt": 4  }
+		},
+		{
+			"cinque": { "$lte": 5  }
+		},
+		{
+			"sei": { "$gt": 6  }
+		},
+		{	
+			"sette": { "$gte": 7 }
+		}
+	]
+});
+
+///////////////////////////////////////////////////////////////////////////////////////////////////

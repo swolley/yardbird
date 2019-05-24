@@ -8,6 +8,7 @@ trait TraitQueryBuilder
 {
 	protected function createQuery(string $query, array $params = [])
 	{
+		$query = self::replaceCarriageReturns($query);
 		if (preg_match('/^select/i', $query) === 1) {
 			return self::parseSelect($query, $params);
 		} elseif (preg_match('/^insert/i', $query) === 1) {
@@ -104,9 +105,9 @@ trait TraitQueryBuilder
 		$matches = [];
 		//TODO not found a better way to split with optional where clauses
 		if(strpos(strtolower($query), 'where')) {
-			preg_match_all('/^(`?\w+(?=\s*)`?\s?)(where\s?)(.*)$/i', $query, $matches);
+			preg_match_all('/^(`?\w+`?) (where) (.*)$/i', $query, $matches);
 		} else {
-			preg_match_all('/^(`?\w+(?=\s*)`?\s?)$/i', $query, $matches);
+			preg_match_all('/^(`?\w+`?)$/i', $query, $matches);
 		}
 		$query = array_slice($matches, 1);
 		unset($matches);
@@ -121,23 +122,7 @@ trait TraitQueryBuilder
 		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
 
-			//splits on parentheses
-			$query = preg_split('/\s/', $query[0][0]);
-			for ($i = 0; $i < count($query); $i++) {
-				if (strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
-					$first_part = array_slice($query, 0, $i);
-					$second_part = array_slice($query, $i + 1);
-					if (substr($query[$i], 0, 1) === '(') {
-						$first_part[] = '(';
-						$first_part[] = substr($query[$i], 1);
-					} elseif (substr($query[$i], -1, 1) === ')') {
-						$first_part[] = substr($query[$i], 0, -1);
-						$first_part[] = ')';
-					}
-					$query = array_merge($first_part, $second_part);
-					$i++;
-				}
-			}
+			$query = self::splitsOnParenthesis($query);
 
 			//parse and nest parameters
 			$i = 0;
@@ -200,22 +185,7 @@ trait TraitQueryBuilder
 			array_shift($query);
 
 			//splits on parentheses
-			$query = preg_split('/\s/', $query[0][0]);
-			for ($i = 0; $i < count($query); $i++) {
-				if (strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
-					$first_part = array_slice($query, 0, $i);
-					$second_part = array_slice($query, $i + 1);
-					if (substr($query[$i], 0, 1) === '(') {
-						$first_part[] = '(';
-						$first_part[] = substr($query[$i], 1);
-					} elseif (substr($query[$i], -1, 1) === ')') {
-						$first_part[] = substr($query[$i], 0, -1);
-						$first_part[] = ')';
-					}
-					$query = array_merge($first_part, $second_part);
-					$i++;
-				}
-			}
+			$query = self::splitsOnParenthesis($query);
 
 			//parse and nest parameters
 			$i = 0;
@@ -299,23 +269,7 @@ trait TraitQueryBuilder
 		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
 
-			//splits on parentheses
-			$query = preg_split('/\s/', $query[0][0]);
-			for ($i = 0; $i < count($query); $i++) {
-				if (strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
-					$first_part = array_slice($query, 0, $i);
-					$second_part = array_slice($query, $i + 1);
-					if (substr($query[$i], 0, 1) === '(') {
-						$first_part[] = '(';
-						$first_part[] = substr($query[$i], 1);
-					} elseif (substr($query[$i], -1, 1) === ')') {
-						$first_part[] = substr($query[$i], 0, -1);
-						$first_part[] = ')';
-					}
-					$query = array_merge($first_part, $second_part);
-					$i++;
-				}
-			}
+			$query = self::splitsOnParenthesis($query);
 
 			//parse and nest parameters
 			$i = 0;
@@ -520,5 +474,37 @@ trait TraitQueryBuilder
 			$params = $reordered_params;
 			unset($reordered_params);
 		}
+	}
+
+	private static function splitsOnParenthesis(array $query): array
+	{
+		//splits on parentheses
+		$query = preg_split('/\s/', $query[0][0]);
+		for ($i = 0; $i < count($query); $i++) {
+			if (strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
+				$first_part = array_slice($query, 0, $i);
+				$second_part = array_slice($query, $i + 1);
+				if (substr($query[$i], 0, 1) === '(') {
+					$first_part[] = '(';
+					$substr = substr($query[$i], 1);
+					if($substr !== ' '){
+						$first_part[] = $substr;
+					}
+				} elseif (substr($query[$i], -1, 1) === ')') {
+					$substr = substr($query[$i], 0, -1);
+					if($substr !== ' '){
+						$first_part[] = $substr;
+					}
+					$first_part[] = ')';
+				}
+
+				$query = array_merge($first_part, $second_part);
+				if(substr(end($first_part), 0, 1) !== '(') {
+					$i++;
+				}
+			}
+		}
+
+		return $query;
 	}
 }
