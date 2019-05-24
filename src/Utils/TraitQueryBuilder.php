@@ -393,8 +393,33 @@ trait TraitQueryBuilder
 
 	protected function groupLogicalOperators(array $query)
 	{
+		if(count($query) < 3) {
+			throw new UnexpectedValueException('Possible error in query syntax');
+		}
+		
 		$nested_group = [];
-		$i = 0;
+		$i = 1;
+		//start
+		do {
+			$cur = $query[$i];
+			$prev = $query[$i - 1];
+
+			if(count($prev) === 1 && $i > 0) {
+				//single value with operator
+				$new_array = [ '$'.strtolower($cur) => $prev ];
+			} elseif(count($prev) > 1) {
+				//sub group of operators
+				$new_array = $this->groupLogicalOperators($prev);
+			}
+			$first_key = key($new_array);
+			if(!isset($nested_group[$first_key])) {
+				$nested_group[$first_key] = $new_array[$first_key];
+			} else {
+				array_merge($nested_group[$first_key], $new_array[$first_key]);
+			}
+			$i = $i + 2;
+		} while($i <= count($query) - 1);
+		/*$i = 0;
 		while ($i < count($query)) {
 			if (array_key_exists($i + 1, $query)) {
 				if (is_string($query[$i + 1])) {
@@ -402,7 +427,17 @@ trait TraitQueryBuilder
 					if ($operator === 'and' || $operator === 'or') {
 						$i = $i + 2;
 						$sub_group = $this->groupLogicalOperators($query[$i]);
-						$merged_array = array_merge(count($query[$i - 2]) === 1 ? $query[$i - 2] : $nested_group, $sub_group);
+
+						$count = count($query[$i - 2]);
+						if($count === 1) {
+							$to_merge = $query[$i - 2];
+						} elseif ($count > 1) {
+							$to_merge = $sub_group = $this->groupLogicalOperators($query[$i - 2]);
+						} else {
+							$to_merge = $nested_group;
+						}
+
+						$merged_array = array_merge($to_merge, $sub_group);
 						$nested_group = [
 							'$' . $operator => $merged_array
 						];
@@ -416,7 +451,7 @@ trait TraitQueryBuilder
 				break;
 			}
 		}
-
+		$pippo = 'ciao ciao ciao';*/
 		return $nested_group;
 	}
 
