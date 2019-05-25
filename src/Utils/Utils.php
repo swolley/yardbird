@@ -4,13 +4,13 @@ namespace Swolley\Database\Utils;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 
-trait TraitUtils
+class Utils
 {
 	/**
 	 * casts params in object format to array
 	 * @param	array|object	$params	params to cast
 	 */
-	protected static function castToArray($params): array
+	public static function castToArray($params): array
 	{
 		$paramsType = gettype($params);
 		if ($paramsType !== 'array' && $paramsType !== 'object') {
@@ -24,7 +24,7 @@ trait TraitUtils
 	 * casts params in object format to array
 	 * @param	array|object	$params	params to cast
 	 */
-	protected static function castToObject($params): object
+	public static function castToObject($params): object
 	{
 		$paramsType = gettype($params);
 		if ($paramsType !== 'array' && $paramsType !== 'object') {
@@ -34,7 +34,11 @@ trait TraitUtils
 		return $paramsType === 'array' ? (object)$params : $params;
 	}
 
-	protected static function replaceCarriageReturns(string $query): string
+	/**
+	 * @param 	string	$query query string
+	 * @return	string	trimmed query
+	 */
+	public static function trimQueryString(string $query): string
 	{
 		return preg_replace('/\s\s+/', ' ', $query);
 	}

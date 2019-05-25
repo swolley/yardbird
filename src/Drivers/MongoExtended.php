@@ -3,8 +3,8 @@ namespace Swolley\Database\Drivers;
 
 use Swolley\Database\DBFactory;
 use Swolley\Database\Interfaces\IConnectable;
-use Swolley\Database\Utils\TraitUtils;
-use Swolley\Database\Utils\TraitQueryBuilder;
+use Swolley\Database\Utils\Utils;
+use Swolley\Database\Utils\QueryBuilder;
 use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
@@ -19,9 +19,6 @@ use MongoLog;
 
 class MongoExtended extends MongoDB implements IConnectable
 {
-	use TraitUtils;
-	use TraitQueryBuilder;
-
 	private $dbName;
 
 	/**
@@ -32,7 +29,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		$params = self::validateConnectionParams($params);
 		try{
 			parent::__construct(...self::composeConnectionParams($params, [ 'authSource' => 'admin' ]));
-			$this->startSession();
+			//$this->startSession();
 			//$this->endSession();
 			$this->dbName = $params['dbName'];
 		} catch(\Exception $e) {
@@ -62,8 +59,8 @@ class MongoExtended extends MongoDB implements IConnectable
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$params = self::castToArray($params);
-		$query = $this->createQuery($query, $params);
+		$params = Utils::castToArray($params);
+		$query = (new QueryBuilder)->createQuery($query, $params);
 		switch ($query['type']) {
 			case 'command':
 				return $this->command($query['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
@@ -119,7 +116,7 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public function insert(string $collection, $params, bool $ignore = false)
 	{
-		$params = self::castToArray($params);
+		$params = Utils::castToArray($params);
 		try {
 			self::bindParams($params);
 			$response = $this->{$this->dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
@@ -139,7 +136,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			throw new UnexpectedValueException('$where param must be of type array');
 		}
 
-		$params = self::castToArray($params);
+		$params = Utils::castToArray($params);
 		try {
 			self::bindParams($params);
 			self::bindParams($where);

@@ -2,15 +2,13 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
-use Swolley\Database\Utils\TraitUtils;
+use Swolley\Database\Utils\Utils;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 
-final class TraitUtilsTest extends TestCase
+final class UtilsTest extends TestCase
 {
-	use TraitUtils;
-
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
 	public function test_castToArray_should_return_exception_if_param_is_not_array_or_object(): void
   	{
@@ -22,10 +20,10 @@ final class TraitUtilsTest extends TestCase
   	{
 		$obj = new StdClass();
 		$obj->field = 'test';
-		$this->assertEquals(['field' => 'test'], $this->castToArray($obj));
+		$this->assertEquals(['field' => 'test'], Utils::castToArray($obj));
 
 		$arr = ['field' => 'test'];
-		$this->assertEquals($arr, $this->castToArray($arr));
+		$this->assertEquals($arr, Utils::castToArray($arr));
 	}
 
 	public function test_castToObject_should_return_exception_if_param_is_not_array_or_object(): void
@@ -47,8 +45,8 @@ final class TraitUtilsTest extends TestCase
 		$this->assertEquals($obj, $this->castToObject($obj));
 	}
 
-	public function test_replaceCarriageReturns_should_return_replaced_string(): void
+	public function test_trimQueryString_should_return_replaced_string(): void
 	{
-		$this->assertEquals('string withouth cr', $this->replaceCarriageReturns("string\nwithouth\ncr"));
+		$this->assertEquals('string withouth cr', Utils::trimQueryString("string\nwithouth\ncr"));
 	}
 }

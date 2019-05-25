@@ -3,12 +3,12 @@ namespace Swolley\Database\Utils;
 
 use Swolley\Database\Exceptions\UnexpectedValueException;
 use Swolley\Database\Exceptions\BadMethodCallException;
+use Swolley\Database\Utils\Utils;
 
-trait TraitQueryBuilder
+class QueryBuilder
 {
-	protected function createQuery(string $query, array $params = [])
+	public function createQuery(string $query, array $params = [])
 	{
-		$query = self::replaceCarriageReturns($query);
 		if (preg_match('/^select/i', $query) === 1) {
 			return self::parseSelect($query, $params);
 		} elseif (preg_match('/^insert/i', $query) === 1) {
@@ -24,15 +24,16 @@ trait TraitQueryBuilder
 		}
 	}
 
-	protected function parseInsert(string $query, array $params = [])
+	public function parseInsert(string $query, array $params = [])
 	{
+		$query = Utils::trimQueryString($query);
 		//recognize ignore keyword
 		$ignore = false;
 		if (preg_match('/^(insert\s)(ignore\s)/i', $query) === 1) {
 			$ignore = true;
 		}
 
-		if(!strpos(strtolower($query), 'into')) {
+		if (!strpos(strtolower($query), 'into')) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
 
@@ -44,7 +45,7 @@ trait TraitQueryBuilder
 		$query = array_slice($matches, 1);
 		unset($matches);
 
-		if(empty($query[0])) {
+		if (empty($query[0])) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
 		//set table name
@@ -98,20 +99,21 @@ trait TraitQueryBuilder
 		];
 	}
 
-	protected function parseDelete(string $query, array $params = [])
+	public function parseDelete(string $query, array $params = [])
 	{
+		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(delete from\s)/i', '', $query), ';');
 		$matches = [];
 		//TODO not found a better way to split with optional where clauses
-		if(strpos(strtolower($query), 'where')) {
+		if (strpos(strtolower($query), 'where')) {
 			preg_match_all('/^(`?\w+`?) (where) (.*)$/i', $query, $matches);
 		} else {
 			preg_match_all('/^(`?\w+`?)$/i', $query, $matches);
 		}
 		$query = array_slice($matches, 1);
 		unset($matches);
-		if(empty(end($query)[0])) {
+		if (empty(end($query)[0])) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
 
@@ -143,21 +145,22 @@ trait TraitQueryBuilder
 		];
 	}
 
-	protected function parseUpdate(string $query, array $params = [])
+	public function parseUpdate(string $query, array $params = [])
 	{
+		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(update\s)/i', '', $query), ';');
 		$matches = [];
 		//TODO not found a better way to split with optional where clauses
-		if(strpos(strtolower($query), 'where')) {
+		if (strpos(strtolower($query), 'where')) {
 			preg_match_all('/^(`?\w+(?=\s*)`?\s?)(set\s)(.*\s?)(where\s)(.*)$/i', $query, $matches);
 		} else {
 			preg_match_all('/^(`?\w+(?=\s*)`?\s?)(set\s)(.*\s?)$/i', $query, $matches);
 		}
 		$query = array_slice($matches, 1);
 		unset($matches);
-		
-		if(empty($query[0])) {
+
+		if (empty($query[0])) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
 
@@ -207,7 +210,7 @@ trait TraitQueryBuilder
 		];
 	}
 
-	protected function parseSelect(string $query, array $params = [])
+	public function parseSelect(string $query, array $params = [])
 	{
 		/*
 		SELECT a,b FROM users WHERE age=33 ORDER BY name	$db->users->find(array("age" => 33), array("a" => 1, "b" => 1))->sort(array("name" => 1));
@@ -221,11 +224,12 @@ trait TraitQueryBuilder
 		SELECT COUNT(AGE) from users	$db->users->find(array("age" => array('$exists' => true)))->count();
 		*/
 
+		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
 		$query = rtrim(preg_replace('/^(select\s)/i', '', $query), ';');
 		$matches = [];
 		//TODO not found a better way to split with optional where clauses
-		if(strpos(strtolower($query), 'where')) {
+		if (strpos(strtolower($query), 'where')) {
 			preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)(where\s?)(.*)$/i', $query, $matches);
 		} else {
 			preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)$/i', $query, $matches);
@@ -233,7 +237,7 @@ trait TraitQueryBuilder
 		$query = array_slice($matches, 1);
 		unset($matches);
 
-		if(empty($query[0])) {
+		if (empty($query[0])) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
 
@@ -295,8 +299,9 @@ trait TraitQueryBuilder
 		];
 	}
 
-	protected function parseProcedure(string $query, array $params = [])
+	public function parseProcedure(string $query, array $params = [])
 	{
+		$query = Utils::trimQueryString($query);
 		$query = rtrim(preg_replace('/^(call|exec|begin)\s?/i', '', $query), ';');
 		$matches = [];
 		preg_match_all('/^(\w+\s?)(?>\(?)(.*)(?:;\s?end)?/i', $query, $matches);
@@ -308,7 +313,7 @@ trait TraitQueryBuilder
 		$parameters_list = preg_replace('/(\)|;).*/', '', array_shift($query)[0]);
 		$parameters_list = preg_split('/,\s?/', $parameters_list);
 
-		if(count($parameters_list) > 0 && !empty($parameters_list[0])) {
+		if (count($parameters_list) > 0 && !empty($parameters_list[0])) {
 			foreach ($parameters_list as $key => $value) {
 				//checks if every placeholder has a value in params
 				if (strpos($value, ':') === 0) {
@@ -393,10 +398,10 @@ trait TraitQueryBuilder
 
 	protected function groupLogicalOperators(array $query)
 	{
-		if(count($query) < 3) {
+		if (count($query) < 3) {
 			throw new UnexpectedValueException('Possible error in query syntax');
 		}
-		
+
 		$nested_group = [];
 		$i = 1;
 		//start
@@ -404,54 +409,35 @@ trait TraitQueryBuilder
 			$cur = $query[$i];
 			$prev = $query[$i - 1];
 
-			if(count($prev) === 1 && $i > 0) {
+			if (count($prev) === 1) {
 				//single value with operator
-				$new_array = [ '$'.strtolower($cur) => $prev ];
-			} elseif(count($prev) > 1) {
+				$new_array = ['$' . strtolower($cur) => $prev];
+			} elseif (count($prev) > 1) {
 				//sub group of operators
-				$new_array = $this->groupLogicalOperators($prev);
+				$new_array['$' . strtolower($cur)] = $this->groupLogicalOperators($prev);
 			}
+
 			$first_key = key($new_array);
-			if(!isset($nested_group[$first_key])) {
+			if (!isset($nested_group[$first_key])) {
 				$nested_group[$first_key] = $new_array[$first_key];
 			} else {
-				array_merge($nested_group[$first_key], $new_array[$first_key]);
+				$nested_group[$first_key] = array_merge($nested_group[$first_key], $new_array[$first_key]);
 			}
+
 			$i = $i + 2;
-		} while($i <= count($query) - 1);
-		/*$i = 0;
-		while ($i < count($query)) {
-			if (array_key_exists($i + 1, $query)) {
-				if (is_string($query[$i + 1])) {
-					$operator = strtolower($query[$i + 1]);
-					if ($operator === 'and' || $operator === 'or') {
-						$i = $i + 2;
-						$sub_group = $this->groupLogicalOperators($query[$i]);
+		} while ($i <= count($query) - 1);
 
-						$count = count($query[$i - 2]);
-						if($count === 1) {
-							$to_merge = $query[$i - 2];
-						} elseif ($count > 1) {
-							$to_merge = $sub_group = $this->groupLogicalOperators($query[$i - 2]);
-						} else {
-							$to_merge = $nested_group;
-						}
-
-						$merged_array = array_merge($to_merge, $sub_group);
-						$nested_group = [
-							'$' . $operator => $merged_array
-						];
-					}
-				}
-			} else {
-				if (count($query) === 1) {
-					$is_assoc = array_keys($query) !== range(0, count($query) - 1);
-					$nested_group = $is_assoc ? $query : end($query);
-				}
-				break;
-			}
+		//last sub array element
+		$i--;
+		$cur = $query[$i];
+		$new_array = count($cur) === 1 ? $cur : $this->groupLogicalOperators($cur);
+		$first_key = key($nested_group);
+		if (!isset($nested_group[$first_key])) {
+			$nested_group[$first_key] = $new_array;
+		} else {
+			$nested_group[$first_key] = array_merge($nested_group[$first_key], $new_array);
 		}
-		$pippo = 'ciao ciao ciao';*/
+
 		return $nested_group;
 	}
 
@@ -485,20 +471,20 @@ trait TraitQueryBuilder
 		$colon_placeholders = array_shift($colon_placeholders);
 		$total_colon_placeholders = count($colon_placeholders);
 
-		if($total_colon_placeholders > 0 && $total_questionmark_placeholders > 0) {
+		if ($total_colon_placeholders > 0 && $total_questionmark_placeholders > 0) {
 			throw new UnexpectedValueException('Possible incongruence in query placeholders');
 		}
 
-		if(($total_colon_placeholders === 0 && $total_questionmark_placeholders !== $total_params) || ($total_questionmark_placeholders === 0 && $total_colon_placeholders !== $total_params)) {
+		if (($total_colon_placeholders === 0 && $total_questionmark_placeholders !== $total_params) || ($total_questionmark_placeholders === 0 && $total_colon_placeholders !== $total_params)) {
 			throw new BadMethodCallException('Number of params and placeholders must be the same');
 		}
-		
+
 		//changes colon placeholders found they are switched to question marks because of mysqli bind restruction
-		if($total_questionmark_placeholders === 0) {
+		if ($total_questionmark_placeholders === 0) {
 			$reordered_params = [];
-			foreach($colon_placeholders as $param) {
+			foreach ($colon_placeholders as $param) {
 				$trimmed = ltrim($param, ':');
-				if(array_key_exists($trimmed, $params)) {
+				if (array_key_exists($trimmed, $params)) {
 					$reordered_params[] = $params[$trimmed];
 					$query = str_replace($param, '?', $query);
 				} else {
@@ -522,19 +508,19 @@ trait TraitQueryBuilder
 				if (substr($query[$i], 0, 1) === '(') {
 					$first_part[] = '(';
 					$substr = substr($query[$i], 1);
-					if($substr !== ' '){
+					if ($substr !== ' ') {
 						$first_part[] = $substr;
 					}
 				} elseif (substr($query[$i], -1, 1) === ')') {
 					$substr = substr($query[$i], 0, -1);
-					if($substr !== ' '){
+					if ($substr !== ' ') {
 						$first_part[] = $substr;
 					}
 					$first_part[] = ')';
 				}
 
 				$query = array_merge($first_part, $second_part);
-				if(substr(end($first_part), 0, 1) !== '(') {
+				if (substr(end($first_part), 0, 1) !== '(') {
 					$i++;
 				}
 			}

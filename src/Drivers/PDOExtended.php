@@ -3,8 +3,8 @@ namespace Swolley\Database\Drivers;
 
 use Swolley\Database\DBFactory;
 use Swolley\Database\Interfaces\IRelationalConnectable;
-use Swolley\Database\Utils\TraitUtils;
-use Swolley\Database\Utils\TraitQueryBuilder as QueryBuilder;
+use Swolley\Database\Utils\Utils;
+use Swolley\Database\Utils\QueryBuilder;
 use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
@@ -12,8 +12,6 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 
 class PDOExtended extends \PDO implements IRelationalConnectable
 {
-	use TraitUtils;
-
 	/**
 	 * @param	array	$params	connection parameters
 	 */
@@ -89,8 +87,8 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$params = self::castToArray($params);
-		$query = self::replaceCarriageReturns($query);
+		$params = Utils::castToArray($params);
+		$query = Utils::trimQueryString($query);
 		if($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci'){
 			//because in postgres && has a different meaning than OR
 			$query = QueryBuilder::operatorsToStandardSyntax($query);
@@ -142,7 +140,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$params = self::castToArray($params);
+		$params = Utils::castToArray($params);
 
 		try {
 			//ksort($params);
@@ -189,7 +187,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public function update(string $table, $params, $where = null): bool
 	{
-		$params = self::castToArray($params);
+		$params = Utils::castToArray($params);
 
 		if(!is_null($where) && gettype($where) !== 'string') {
 			throw new UnexpectedValueException('$where param must be of type string');

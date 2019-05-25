@@ -2,8 +2,7 @@
 namespace Swolley\Database\Drivers;
 
 use Swolley\Database\DBFactory;
-use Swolley\Database\Utils\TraitUtils;
-use Swolley\Database\Utils\TraitQueryBuilder as QueryBuilder;
+use Swolley\Database\Utils\Utils;
 use Swolley\Database\Interfaces\IRelationalConnectable;
 use Swolley\Database\Exceptions\ConnectionException;
 use Swolley\Database\Exceptions\QueryException;
@@ -12,8 +11,6 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 
 class OCIExtended implements IRelationalConnectable
 {
-	use TraitUtils;
-
 	private $db;
 
 	public function __construct(array $params)
@@ -22,8 +19,8 @@ class OCIExtended implements IRelationalConnectable
 		try {
 			$this->db = oci_connect(...self::composeConnectionParams($params));
 		} catch(\Throwable $e) {
-			$e = oci_error();
-			throw new ConnectionException($e['message'], $e['code']);
+			//$e = oci_error();
+			throw new ConnectionException('Error while connecting to db');
 		}
 	}
 
@@ -86,8 +83,8 @@ class OCIExtended implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$query = self::replaceCarriageReturns($query);
-		$params = self::castToArray($params);
+		$query = Utils::trimQueryString($query);
+		$params = Utils::castToArray($params);
 
 		//TODO add the function developed for mysqli
 
@@ -133,7 +130,7 @@ class OCIExtended implements IRelationalConnectable
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$params = self::castToArray($params);
+		$params = Utils::castToArray($params);
 		//ksort($params);
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
@@ -161,7 +158,7 @@ class OCIExtended implements IRelationalConnectable
 
 	public function update(string $table, $params, $where = null): bool
 	{
-		$params = self::castToArray($params);
+		$params = Utils::castToArray($params);
 		
 		if(!is_null($where) && gettype($where) !== 'string') {
 			throw new UnexpectedValueException('$where param must be of type string');
