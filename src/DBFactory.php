@@ -6,7 +6,7 @@ use Swolley\Database\Drivers\MongoExtended;
 use Swolley\Database\Drivers\OCIExtended;
 use Swolley\Database\Drivers\PDOExtended;
 use Swolley\Database\Drivers\MySqliExtended;
-use Swolley\Database\Exceptions\QueryException;
+//use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 
@@ -18,26 +18,23 @@ final class DBFactory
 	const FETCH_CLASS = 8;
 	const FETCH_PROPS_LATE = 1048576;
 
-	public function __invoke(array $connectionParameters): IConnectable
+	public function __invoke(array $connectionParameters, bool $debugMode = false): IConnectable
 	{
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) {
 			throw new BadMethodCallException("Connection parameters are required");
 		}
 
-		$extension_name = self::checkExtension($connectionParameters['driver']);
-		if (is_null($extension_name)) {
-			throw new \Exception('Extension not supported with current php configuration', 500);
-		}
-
-		switch ($extension_name) {
+		switch (self::checkExtension($connectionParameters['driver'])) {
 			case 'mongodb':
-				return new MongoExtended($connectionParameters);
+				return new MongoExtended($connectionParameters, $debugMode);
 			case 'oci8':
-				return new OCIExtended($connectionParameters);
+				return new OCIExtended($connectionParameters, $debugMode);
 			case 'pdo':
-				return new PDOExtended($connectionParameters);
+				return new PDOExtended($connectionParameters, $debugMode);
 			case 'mysqli':
-				return new MySqliExtended($connectionParameters);
+				return new MySqliExtended($connectionParameters, $debugMode);
+			default:
+				throw new \Exception('Extension not supported with current php configuration', 500);
 		}
 	}
 
@@ -51,12 +48,11 @@ final class DBFactory
 		}
 
 		switch ($driver) {
+			case 'mongo':
 			case 'mongodb':
 				return extension_loaded('mongodb') ? 'mongodb' : null;
 			case 'oci':
-				if(extension_loaded('pdo')){
-					return 'pdo';	//correctly inside if. no pdo => tries oci8
-				}
+				if(extension_loaded('pdo')) return 'pdo';	//correctly inside if. no pdo => tries oci8
 			case 'oci8':
 				return extension_loaded('oci8') ? 'oci8' : null;
 			case 'cubrid':

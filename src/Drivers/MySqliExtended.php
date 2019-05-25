@@ -12,15 +12,18 @@ use Swolley\Database\Utils\QueryBuilder;
 
 class MySqliExtended extends \mysqli implements IRelationalConnectable
 {
+	private $_debugMode;
+
 	/**
 	 * @param	array	$params	connection parameters
 	 */
-	public function __construct(array $params)
+	public function __construct(array $params, $debugMode = false)
 	{
 		$params = self::validateConnectionParams($params);
 		try {
 			parent::__construct(...self::composeConnectionParams($params));
 			$this->set_charset($params['charset']);
+			$this->_debugMode = $debugMode;
 		} catch(\Throwable $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
@@ -263,7 +266,10 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 
 		$varTypes = '';
 		foreach ($params as $value) {
-			$varTypes .= is_bool($value) || is_int($value) ? 'i' : is_float($value) || is_double($value) ? 'd' : 's';
+			/*if(gettype($value) === 'array') {
+				$value = preg_replace('/\[|\]/', '', json_encode($value, JSON_UNESCAPED_SLASHES));
+			}*/
+			$varTypes .= is_bool($value) || is_int($value) ? 'i' : (is_float($value) || is_double($value) ? 'd' : 's');
         }
 		if (!$st->bind_param($varTypes, ...$params)) {
 			return false;

@@ -12,10 +12,12 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 
 class PDOExtended extends \PDO implements IRelationalConnectable
 {
+	private $_debugMode;
+
 	/**
 	 * @param	array	$params	connection parameters
 	 */
-	public function __construct(array $params)
+	public function __construct(array $params, bool $debugMode = false)
 	{
 		$params = self::validateConnectionParams($params);
 		
@@ -24,6 +26,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			if (error_reporting() === E_ALL) {
 				parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
 			}
+			$this->_debugMode = $debugMode;
 		} catch(\PDOException $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode(), $e);
 		}
@@ -104,8 +107,9 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
+				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
+			
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
@@ -130,7 +134,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
+				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
@@ -172,7 +176,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
+				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
 			$inserted_id = $this->lastInsertId();
 			$total_inserted = $st->rowCount();
@@ -214,7 +218,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
+				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
 
 			return $st->rowCount() > 0;
@@ -242,7 +246,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			}
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
+				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
 
 			return $st->rowCount() > 0;
@@ -276,7 +280,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			self::bindOutParams($outParams, $st, $outResult);
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
-				throw new QueryException("{$error[0]}: {$error[2]}", $error[0]);
+				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
 
 			if (count($outParams) > 0) {
@@ -307,7 +311,10 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		// }
 
 		foreach ($params as $key => $value) {
-            $varType = is_null($value) ? self::PARAM_NULL : is_bool($value) ? self::PARAM_BOOL : is_int($value) ? self::PARAM_INT : self::PARAM_STR;
+			/*if(gettype($value) === 'array') {
+				$value = preg_replace('/\[|\]/', '', json_encode($value, JSON_UNESCAPED_SLASHES));
+			}*/
+			$varType = is_null($value) ? self::PARAM_NULL : (is_bool($value) ? self::PARAM_BOOL : (is_int($value) ? self::PARAM_INT : self::PARAM_STR));
             if (!$st->bindValue(":$key", $value, $varType)) {
                 return false;
 			}

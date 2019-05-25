@@ -11,17 +11,20 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 
 class OCIExtended implements IRelationalConnectable
 {
-	private $db;
+	private $_db;
+	//private $_debugMode;
 
-	public function __construct(array $params)
+	public function __construct(array $params, bool $debugMode = false)
 	{
 		$params = self::validateConnectionParams($params);
 		try {
-			$this->db = oci_connect(...self::composeConnectionParams($params));
+			$this->_db = oci_connect(...self::composeConnectionParams($params));
+			//$this->_debugMode = $debugMode;
+			oci_internal_debug($debugMode);
 		} catch(\Throwable $e) {
-			//$e = oci_error();
 			throw new ConnectionException('Error while connecting to db');
 		}
+
 	}
 
 	public static function validateConnectionParams(array $params): array
@@ -89,7 +92,7 @@ class OCIExtended implements IRelationalConnectable
 		//TODO add the function developed for mysqli
 
 		//ksort($params);
-		$st = oci_parse($this->db, $query);
+		$st = oci_parse($this->_db, $query);
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}
@@ -114,7 +117,7 @@ class OCIExtended implements IRelationalConnectable
 		}
 		$stringed_where = rtrim($values, 'AND ');
 
-		$st = oci_parse($this->db, "SELECT {$stringed_fields} FROM {$table} " . (!empty($stringed_where) ? "WHERE {$stringed_where}" : ''));
+		$st = oci_parse($this->_db, "SELECT {$stringed_fields} FROM {$table} " . (!empty($stringed_where) ? "WHERE {$stringed_where}" : ''));
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}
@@ -135,7 +138,7 @@ class OCIExtended implements IRelationalConnectable
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
 
-		$st = oci_parse($this->db, "BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END; RETURNING RowId INTO :last_inserted_id");
+		$st = oci_parse($this->_db, "BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END; RETURNING RowId INTO :last_inserted_id");
 		if(!self::bindParams($params, $st)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
 			}
@@ -146,9 +149,9 @@ class OCIExtended implements IRelationalConnectable
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$r = oci_commit($this->db);
+		$r = oci_commit($this->_db);
 		if (!$r) {
-			$error = oci_error($$this->db);
+			$error = oci_error($$this->_db);
 			throw new OCIException($error['message'], $error['code']);
 		}
 
@@ -173,7 +176,7 @@ class OCIExtended implements IRelationalConnectable
 		}
 		$values = rtrim($values, ', ');
 
-		$st = oci_parse($this->db, "UPDATE `{$table}` SET {$values}" . (!is_null($where) ? " WHERE {$where}" : ''));
+		$st = oci_parse($this->_db, "UPDATE `{$table}` SET {$values}" . (!is_null($where) ? " WHERE {$where}" : ''));
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}
@@ -194,7 +197,7 @@ class OCIExtended implements IRelationalConnectable
 		}
 
 		//ksort($params);
-		$st = oci_parse($this->db, "DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
+		$st = oci_parse($this->_db, "DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}
@@ -225,7 +228,7 @@ class OCIExtended implements IRelationalConnectable
 		$procedure_out_params = rtrim($procedure_out_params, ', ');
 
 		$st = oci_parse(
-			$this->db,
+			$this->_db,
 			"BEGIN $name("
 				. (count($inParams) > 0 ? $procedure_in_params : '')	//in params
 				. (count($inParams) > 0 && count($outParams) > 0 ? ', ' : '')	//separator between in and out params

@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);
+declare (strict_types = 1);
 
 use PHPUnit\Framework\TestCase;
 use Swolley\Database\Utils\QueryBuilder;
@@ -11,13 +11,13 @@ final class QueryBuilderTest extends TestCase
 {
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
 	public function test_createQuery_should_return_exception_if_not_recognized_a_valid_query(): void
-  	{
+	{
 		$this->expectException(UnexpectedValueException::class);
 		(new QueryBuilder)->createQuery('invalid query');
 	}
 
 	public function test_createQuery_should_return_array_if_parameters_are_correct(): void
-  	{
+	{
 		$queryBuilder = new QueryBuilder();
 		$query = $queryBuilder->createQuery('SELECT id FROM table');
 		$this->assertEquals('array', gettype($query));
@@ -87,7 +87,7 @@ final class QueryBuilderTest extends TestCase
 		];
 		$this->assertEquals($response, $query);
 	}
-	
+
 	public function test_parseDelete_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
@@ -100,7 +100,7 @@ final class QueryBuilderTest extends TestCase
 		$response = [
 			'type' => 'delete',
 			'table' => 'table',
-			'params' => [['id' => ['$lt' => 1]], 'AND', ['c' => ['$ne' => 2]]]
+			'params' => ['$and' => ['id' => ['$lt' => 1], 'c' => ['$ne' => 2]]]
 		];
 		$this->assertEquals($response, $query);
 	}
@@ -126,7 +126,7 @@ final class QueryBuilderTest extends TestCase
 	public function test_parseSelect_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$this->parseSelect("SELECT INTO `table` WHERE `column` > 'value'");
+		(new QueryBuilder)->parseSelect("SELECT INTO `table` WHERE `column` > 'value'");
 	}
 
 	public function test_parseSelect_shold_return_array_if_parameters_are_correct(): void
@@ -189,11 +189,11 @@ final class QueryBuilderTest extends TestCase
 	public function test_groupLogicalOperators_should_return_grouped_params_by_operators(): void
 	{
 		$query = [
-			[ 'a' => [ '$eq' => 1 ] ], 
-			'AND', 
-			[ 'b' => [ '$gt' => 'value' ] ]
+			['a' => ['$eq' => 1]],
+			'AND',
+			['b' => ['$gt' => 'value']]
 		];
-		
+
 		$parsed = (new QueryBuilder)->groupLogicalOperators($query);
 		$response = [
 			'$and' => [

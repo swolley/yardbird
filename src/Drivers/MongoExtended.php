@@ -10,29 +10,32 @@ use Swolley\Database\Exceptions\QueryException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 use	MongoDB\Client as MongoDB;
-use MongoDB\BSON as BSON;
+//use MongoDB\BSON as BSON;
 use MongoDB\Driver\Command as MongoCmd;
-use MongoDB\Driver\Manager as MongoManager;
+//use MongoDB\Driver\Manager as MongoManager;
 use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
 use MongoLog;
 
 class MongoExtended extends MongoDB implements IConnectable
 {
-	private $dbName;
+	private $_dbName;
+	private $_debugMode;
 
 	/**
 	 * @param	array	$params	connection parameters
 	 */
-	public function __construct(array $params)
+	public function __construct(array $params, bool $debugMode = false)
 	{
 		$params = self::validateConnectionParams($params);
-		try{
-			parent::__construct(...self::composeConnectionParams($params, [ 'authSource' => 'admin' ]));
-			//$this->startSession();
-			//$this->endSession();
-			$this->dbName = $params['dbName'];
-		} catch(\Exception $e) {
+		try {
+			parent::__construct(...self::composeConnectionParams($params, ['authSource' => 'admin']));
+			$this->_dbName = $params['dbName'];
+			$this->_debugMode = $debugMode;
+			if(count($this->getManager()->getServers()) === 0) {
+				throw new ConnectionException('Unable to connect. Check parameters');
+			}
+		} catch (\Exception $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
 	}
@@ -43,6 +46,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) {
 			throw new BadMethodCallException("host, user, password, dbName are required");
 		}
+
 		return $params;
 	}
 
@@ -88,6 +92,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		//FIXME also options needs to be binded
 		try {
 			$st = $this->db->command($options);
+			
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -102,13 +107,9 @@ class MongoExtended extends MongoDB implements IConnectable
 			/*foreach ($options as $key => &$param) {
 				$param = filter_var($param);
 			}*/
-
-			$st = $this->{$this->dbName}->{$collection}->find($search, $options ?? []);
-			if (array_key_exists('count', $options)) {
-				return $st->count();
-			} else {
-				return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
-			}
+			$st = $this->{$this->_dbName}->{$collection}->find($search, $options ?? []);
+			
+			return array_key_exists('count', $options) ? $st->count() : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -119,7 +120,8 @@ class MongoExtended extends MongoDB implements IConnectable
 		$params = Utils::castToArray($params);
 		try {
 			self::bindParams($params);
-			$response = $this->{$this->dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
+			$response = $this->{$this->_dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
+
 			return $response->getInsertedId()['oid'];
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -128,11 +130,11 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public function update(string $collection, $params, $where = null): bool
 	{
-		if(is_null($where)) {
+		if (is_null($where)) {
 			$where = [];
 		}
 
-		if(gettype($where) !== 'array') {
+		if (gettype($where) !== 'array') {
 			throw new UnexpectedValueException('$where param must be of type array');
 		}
 
@@ -140,8 +142,8 @@ class MongoExtended extends MongoDB implements IConnectable
 		try {
 			self::bindParams($params);
 			self::bindParams($where);
-
-			$response = $this->{$this->dbName}->{$collection}->updateMany($where, ['$set' => $params], ['upsert' => FALSE]);
+			$response = $this->{$this->_dbName}->{$collection}->updateMany($where, ['$set' => $params], ['upsert' => FALSE]);
+			
 			return $response->getModifiedCount() > 0;
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -150,17 +152,18 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public function delete(string $collection, $where = null, array $params = null): bool
 	{
-		if(is_null($where)) {
+		if (is_null($where)) {
 			$where = [];
 		}
 
-		if(gettype($where) !== 'array') {
+		if (gettype($where) !== 'array') {
 			throw new UnexpectedValueException('$where param must be of type array');
 		}
 
 		try {
 			self::bindParams($where);
-			$response = $this->{$this->dbName}->{$collection}->deleteMany($where);
+			$response = $this->{$this->_dbName}->{$collection}->deleteMany($where);
+			
 			return $response->getDeletedCount() > 0;
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -173,8 +176,8 @@ class MongoExtended extends MongoDB implements IConnectable
 			self::bindParams($inParams);
 			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($inParams)) . ');');
 			$command = new MongoCmd(['eval' => $jscode]);
-			$st = $this->getManager()->executeCommand($this->dbName, $command);
-			
+			$st = $this->getManager()->executeCommand($this->_dbName, $command);
+
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -196,28 +199,26 @@ class MongoExtended extends MongoDB implements IConnectable
 			default:
 				throw new MongoException\CommandException('Can\'t fetch. Only Object or Associative Array mode accepted');
 		}
+
 		return $st->toArray();
 	}
 
 	public static function bindParams(array &$params, &$st = null): bool
 	{
 		foreach ($params as &$value) {
-			$varType = is_bool($value) ? FILTER_VALIDATE_BOOLEAN : is_int($value) ? FILTER_VALIDATE_INT : is_float($value) ? FILTER_VALIDATE_FLOAT : FILTER_DEFAULT;
+			$varType = is_bool($value) ? FILTER_VALIDATE_BOOLEAN : (is_int($value) ? FILTER_VALIDATE_INT : (is_float($value) ? FILTER_VALIDATE_FLOAT : FILTER_DEFAULT));
 			$options = [
 				'options' => [
 					'default' => null, // value to return if the filter fails
 				]
 			];
-			if($varType === FILTER_VALIDATE_BOOLEAN) {
+			if ($varType === FILTER_VALIDATE_BOOLEAN) {
 				$options['flags'] = FILTER_NULL_ON_FAILURE;
 			}
 			$value = filter_var($value, $varType, $options);
-			if(is_null($value)) {
-				return false;
-			}
+			if (is_null($value)) return false;
 		}
 
 		return true;
 	}
-
 }

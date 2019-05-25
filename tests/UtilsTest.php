@@ -13,7 +13,7 @@ final class UtilsTest extends TestCase
 	public function test_castToArray_should_return_exception_if_param_is_not_array_or_object(): void
   	{
 		$this->expectException(UnexpectedValueException::class);
-		$this->castToArray('invalid');
+		Utils::castToArray('invalid');
 	}
 
 	public function test_castToArray_should_return_array_if_object_or_array_passed(): void
@@ -29,7 +29,7 @@ final class UtilsTest extends TestCase
 	public function test_castToObject_should_return_exception_if_param_is_not_array_or_object(): void
   	{
 		$this->expectException(UnexpectedValueException::class);
-		$this->castToObject('invalid');
+		Utils::castToObject('invalid');
 	}
 
 	public function test_castToObject_should_return_object_if_array_passed(): void
@@ -38,15 +38,18 @@ final class UtilsTest extends TestCase
 		$expected = new StdClass();
 		$expected->field = 'test';
 
-		$this->assertEquals($expected, $this->castToObject($arr));
+		$this->assertEquals($expected, Utils::castToObject($arr));
 
 		$obj = new StdClass();
 		$obj->field = 'test';
-		$this->assertEquals($obj, $this->castToObject($obj));
+		$this->assertEquals($obj, Utils::castToObject($obj));
 	}
 
 	public function test_trimQueryString_should_return_replaced_string(): void
 	{
-		$this->assertEquals('string withouth cr', Utils::trimQueryString("string\nwithouth\ncr"));
+		$query = "string
+			withouth
+				cr";
+		$this->assertEquals('string withouth cr', Utils::trimQueryString($query));
 	}
 }

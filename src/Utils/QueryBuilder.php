@@ -73,7 +73,7 @@ class QueryBuilder
 			throw new UnexpectedValueException('parseInsert needs to know columns\' values');
 		}
 		$values_list = array_map(function ($value) {
-			return $this->castValue($value);
+			return self::castValue($value);
 		}, $values_list);
 
 		if (count($keys_list) !== count($values_list)) {
@@ -179,7 +179,7 @@ class QueryBuilder
 		foreach ($keys_list as $value) {
 			$exploded = explode('=', preg_replace('/`|\s/', '', $value));
 			$key = ltrim($exploded[1], ':');
-			$parsed_params[$exploded[0]] = array_key_exists($key, $params) ? $params[$key] : $this->castValue($key);
+			$parsed_params[$exploded[0]] = array_key_exists($key, $params) ? $params[$key] : self::castValue($key);
 		}
 		unset($keys_list);
 
@@ -325,7 +325,7 @@ class QueryBuilder
 					//if is not a placeholder create new element in params array with value found in query
 					$first_part = array_slice($params, 0, $key);
 					$second_part = array_slice($params, $key + 1);
-					$first_part['param' . ($key + 1)] = $this->castValue($value);
+					$first_part['param' . ($key + 1)] = self::castValue($value);
 					$params = array_merge($first_part, $second_part);
 				}
 			}
@@ -340,7 +340,7 @@ class QueryBuilder
 		];
 	}
 
-	protected function parseOperators(array &$query, array &$params, int &$i, int &$nested_level)
+	public function parseOperators(array &$query, array &$params, int &$i, int &$nested_level)
 	{
 		$where_params = [];
 		while ($i < count($query)) {
@@ -370,7 +370,7 @@ class QueryBuilder
 						throw new UnexpectedValueException('Unrecognised operator');
 				}
 
-				$splitted[2] = $this->castValue($splitted[2]);
+				$splitted[2] = self::castValue($splitted[2]);
 				$trimmed = ltrim($splitted[2], ':');
 				if (isset($params[$trimmed])) {
 					$splitted[2] = $params[$trimmed];
@@ -396,10 +396,13 @@ class QueryBuilder
 		return $where_params;
 	}
 
-	protected function groupLogicalOperators(array $query)
+	public function groupLogicalOperators(array $query)
 	{
-		if (count($query) < 3) {
+		/*if (count($query) < 3) {
 			throw new UnexpectedValueException('Possible error in query syntax');
+		}*/
+		if(count($query) === 1) {
+			$query = array_pop($query);
 		}
 
 		$nested_group = [];
@@ -441,7 +444,7 @@ class QueryBuilder
 		return $nested_group;
 	}
 
-	protected function castValue($value)
+	public static function castValue($value)
 	{
 		if (preg_match("/^'|\"\w+'|\"$/", $value)) {
 			return preg_replace("/'|\"/", '', $value);
