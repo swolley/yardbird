@@ -69,7 +69,7 @@ class MongoExtended extends MongoDB implements IConnectable
 				return $this->command($query->options, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'select':
-				return $this->select($query->table, $query->filter, $query->options, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+				return $this->select($query->table, $query->filter, $query->options, $query->orderBy, $query->limit, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'insert':
 				return $this->insert($query->table, $query->params, $query->ignore);
@@ -98,11 +98,32 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	public function select(string $collection, array $filter = [], $options = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $collection, array $filter = [], $options = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($filter);
 			$st = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
+			
+			//ORDER BY
+			if(!empty($orderBy)) {
+				foreach($orderBy as $value) {
+					if($value !== 1 && $value !== -1) {
+						throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
+					}
+				}
+				$st->sort($orderBy);
+			}
+
+			//LIMIT
+			if(!is_null($limit)) {
+				if(is_integer($limit)){
+					$st->limit($limit);
+				} elseif(is_array($limit) && count($limit) === 2) {
+					$st->limit($limit[1])->skip($limit[0]);
+				} else {
+					throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
+				}	
+			} 
 			
 			return array_key_exists('count', $options) ? $st->count() : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {

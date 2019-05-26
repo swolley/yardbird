@@ -40,7 +40,7 @@ interface IConnectable
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	function select(string $table, array $params = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+	function select(string $table, array $params = [], array $where = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
 	/**
 	 * execute insert query

@@ -106,18 +106,54 @@ class OCIExtended implements IRelationalConnectable
 		return $response;
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $table, array $fields = [], array $where = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$stringed_fields = join(', ', $fields);
+		$stringed_fields = '`' . join('`, `', $fields) . '`';
 
-		//ksort($where);
-		$values = '';
+		//WHERE
+		$stringed_where = '';
 		foreach ($where as $key => $value) {
-			$values .= "`$key`=:$key AND ";
+			$stringed_where .= "`$key`=:$key AND ";
 		}
-		$stringed_where = rtrim($values, 'AND ');
+		$stringed_where = rtrim($stringed_where, 'AND ');
+		if(!empty($stringed_where)) {
+			$stringed_where = "WHERE {$stringed_where}";
+		}
 
-		$st = oci_parse($this->_db, "SELECT {$stringed_fields} FROM {$table} " . (!empty($stringed_where) ? "WHERE {$stringed_where}" : ''));
+		//ORDER BY
+		$stringed_order_by = '';
+		foreach($orderBy as $key => $value) {
+			if($value === 1) {
+				$direction = 'ASC';
+			} elseif($value === -1) {
+				$direction = 'DESC';
+			} else {
+				throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
+			}
+
+			$stringed_order_by .= "{$key} {$direction},"; 
+		}
+		rtrim($stringed_order_by, ',');
+		if(!empty($stringed_order_by)) {
+			$stringed_order_by = "ORDER BY {$stringed_order_by}";
+		}
+
+		//LIMIT
+		if(is_null($limit)) {
+			$stringed_limit = '';
+		} elseif(is_integer($limit)){
+			$stringed_limit = $limit;
+		} elseif(is_array($limit) && count($limit) === 2) {
+			$stringed_limit = join(',', $limit);
+		} else {
+			throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
+		}
+		if(!empty($stringed_limit)) {
+			$stringed_limit = "LIMIT {$stringed_limit}";
+		}
+
+		$st = oci_parse($this->_db, "SELECT {$stringed_fields} FROM {$table} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
+
 		if(!self::bindParams($params, $st)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		}

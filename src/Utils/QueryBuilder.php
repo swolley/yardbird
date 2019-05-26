@@ -242,10 +242,6 @@ class QueryBuilder
 	{
 		/*
 		TODO not handled yet
-		SELECT a,b FROM users WHERE age=33 ORDER BY name	$db->users->find(array("age" => 33), array("a" => 1, "b" => 1))->sort(array("name" => 1));
-		SELECT * FROM users ORDER BY name DESC	$db->users->find()->sort(array("name" => -1));
-		SELECT * FROM users LIMIT 20, 10	$db->users->find()->limit(10)->skip(20);
-		SELECT * FROM users LIMIT 1	$db->users->find()->limit(1);
 		SELECT COUNT(*y) FROM users	$db->users->count();
 		SELECT COUNT(*y) FROM users where AGE > 30	$db->users->find(array("age" => array('$gt' => 30)))->count();
 		SELECT COUNT(AGE) from users	$db->users->find(array("age" => array('$exists' => true)))->count();
@@ -253,58 +249,56 @@ class QueryBuilder
 
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
-		$query = rtrim(preg_replace('/^(select\s)/i', '', $query), ';');
-		$matches = [];
-		//TODO not found a better way to split with optional where clauses
-		if (strpos(strtolower($query), 'where')) {
-			preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)(where\s?)(.*)$/i', $query, $matches);
-		} else {
-			preg_match_all('/^(distinct\s)?(.*)(from\s)(.*)$/i', $query, $matches);
-		}
-		$query = array_slice($matches, 1);
-		unset($matches);
-		if (empty($query[0])) {
+		$query = rtrim($query, ';');
+		$query = preg_split('/(select) (distinct) |(from) |(where) |(order by) |(limit) /i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+		if (empty($query)) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
+		//removes select
+		array_shift($query);
 
-		//check if distinct
+		//DISTINCT
 		$isDistinct = false;
-		if (preg_match('/^distinct/i', $query[0][0]) === 1) {
+		if (preg_match('/distinct/i', $query[0]) === 1) {
 			array_shift($query);
 			$isDistinct = true;
-		} elseif ($query[0][0] === '') {
-			array_shift($query);
 		}
 
-		//parse columns to select
-		$columns_list = preg_split('/,\s?/', array_shift($query)[0]);
+		//COLUMNS
+		$columns_list = preg_split('/,\s?/', trim(array_shift($query)));
 		$projection = [];
+		$is_unique_id = false;
 		foreach( $columns_list as $key) {
-			$projection[trim(trim($key, '`'))] = 1;
+			$trimmed = trim($key, '`');
+			if($trimmed === '_id') {
+				$is_unique_id = true;
+			}
+			$projection[$trimmed] = 1;
 		};
+		if(!$is_unique_id) {
+			$projection['_id'] = 0;
+		}
 		unset($columns_list);
 		reset($projection);
 
 		if (count($projection) === 1 && $projection[key($projection)] === '*') {
 			$projection = [];
 		}
-		$array_keys = array_keys($projection);
-		if(!in_array('_id', $array_keys)) {
-			$projection['_id'] = 0;
-		}
-		unset($array_keys);
 
-		//bypasse FROM keyword
-		if (preg_match('/^from\s/i', $query[0][0]) === 0) {
+		//FROM
+		if (preg_match('/from/i', $query[0]) === 0) {
 			throw new UnexpectedValueException("select query require FROM keyword after columns list");
 		} else {
 			array_shift($query);
 		}
 
-		//set table name
-		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
-		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
+		//TABLE
+		$table = preg_replace('/`|\s/', '', array_shift($query));
+		
+		//WHERE
+		if (count($query) > 0 && preg_match('/where/i', $query[0][0]) === 1) {
 			array_shift($query);
+
 			$query = self::splitsOnParenthesis($query);
 			//parse and nest parameters
 			$i = 0;
@@ -317,19 +311,48 @@ class QueryBuilder
 			$final_nested = [];
 		}
 
+		//ORDER BY
+		if (count($query) > 0 && preg_match('/order by/i', $query[0]) === 1) {
+			array_shift($query);
+			$splitted = preg_split('/,\s?/', trim(array_shift($query)));
+			$order_fields = [];
+			foreach($splitted as $element) {
+				$key_order = preg_split('/\s/', $element);
+				$order_fields[$key_order[0]] = isset($key_order[1]) && strtolower($key_order[1]) === 'desc' ? -1 : 1;
+			}
+		}
+
+		if (count($query) > 0 && preg_match('/limit/i', $query[0]) === 1) {
+			array_shift($query);
+			$limit = preg_split('/,/', array_shift($query));
+			if(count($limit) === 0) {
+				$limit = $limit[0];
+			}
+		}
+
 		//query elements ready to be passed to driver function
 		if ($isDistinct) {
 			$final_nested = array_merge(['distinct' => $table], $final_nested);
 		}
 
-		return (object)[
+		$result = [
 			'type' => $isDistinct ? 'command' : 'select',
 			'table' => $table,
 			'filter' => $final_nested,
 			'options' => [
 				'projection' => $projection 
-			],
+			]
 		];
+
+		if(isset($order_fields)) {
+			$result['orderBy'] = $order_fields;
+		}
+
+		if(isset($limit)) {
+			$result['limit'] = $limit;
+		}
+
+		return (object)$result;
 	}
 
 	public function parseProcedure(string $query, array $params = [])
