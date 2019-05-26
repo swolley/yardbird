@@ -20,7 +20,7 @@ interface IConnectable
 	static function composeConnectionParams(array $params, array $init_Array = []): array;
 
 	/**
-	 * execute generic query
+	 * execute inline or complex queries query
 	 * @param 	string  		$query          			query text with placeholders
 	 * @param 	array|object  	$params         			assoc array with placeholder's name and relative values
 	 * @param 	int     		$fetchMode     				(optional) PDO fetch mode. default = associative array

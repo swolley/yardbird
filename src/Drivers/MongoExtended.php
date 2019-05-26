@@ -15,6 +15,7 @@ use MongoDB\Driver\Command as MongoCmd;
 //use MongoDB\Driver\Manager as MongoManager;
 use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
+use MongoDB\BSON\Regex;
 use MongoLog;
 
 class MongoExtended extends MongoDB implements IConnectable
@@ -30,11 +31,9 @@ class MongoExtended extends MongoDB implements IConnectable
 		$params = self::validateConnectionParams($params);
 		try {
 			parent::__construct(...self::composeConnectionParams($params, ['authSource' => 'admin']));
+			$this->listDatabases();
 			$this->_dbName = $params['dbName'];
 			$this->_debugMode = $debugMode;
-			if(count($this->getManager()->getServers()) === 0) {
-				throw new ConnectionException('Unable to connect. Check parameters');
-			}
 		} catch (\Exception $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
@@ -65,24 +64,24 @@ class MongoExtended extends MongoDB implements IConnectable
 	{
 		$params = Utils::castToArray($params);
 		$query = (new QueryBuilder)->createQuery($query, $params);
-		switch ($query['type']) {
+		switch ($query->type) {
 			case 'command':
-				return $this->command($query['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+				return $this->command($query->options, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'select':
-				return $this->select($query['table'], $query['params'], $query['options'], $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+				return $this->select($query->table, $query->filter, $query->options, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'insert':
-				return $this->insert($query['table'], $query['params'], $query['ignore']);
+				return $this->insert($query->table, $query->params, $query->ignore);
 				break;
 			case 'update':
-				return $this->update($query['table'], $query['params'], $query['where']);
+				return $this->update($query->table, $query->params, $query->where);
 				break;
 			case 'delete':
-				return $this->delete($query['table'], $query['params']);
+				return $this->delete($query->table, $query->params);
 				break;
 			case 'procedure':
-				return $this->procedure($query['name'], $query['params']);
+				return $this->procedure($query->table, $query->params);
 				break;
 		}
 	}
@@ -99,15 +98,11 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	public function select(string $collection, array $search = [], $options = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $collection, array $filter = [], $options = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
-			self::bindParams($search);
-			//FIXME does options need to be filtered???
-			/*foreach ($options as $key => &$param) {
-				$param = filter_var($param);
-			}*/
-			$st = $this->{$this->_dbName}->{$collection}->find($search, $options ?? []);
+			self::bindParams($filter);
+			$st = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
 			
 			return array_key_exists('count', $options) ? $st->count() : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
@@ -193,6 +188,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			case DBFactory::FETCH_OBJ:
 				$st->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
 				break;
+				
 				//case DBFactory::FETCH_CLASS:
 				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
 				//	break;
@@ -212,10 +208,14 @@ class MongoExtended extends MongoDB implements IConnectable
 					'default' => null, // value to return if the filter fails
 				]
 			];
+
 			if ($varType === FILTER_VALIDATE_BOOLEAN) {
 				$options['flags'] = FILTER_NULL_ON_FAILURE;
 			}
-			$value = filter_var($value, $varType, $options);
+			$value = $value instanceof Regex 
+				? new Regex(filter_var($value->getPattern(), $varType, $options))
+				: filter_var($value, $varType, $options);
+
 			if (is_null($value)) return false;
 		}
 

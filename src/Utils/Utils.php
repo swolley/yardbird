@@ -9,6 +9,7 @@ class Utils
 	/**
 	 * casts params in object format to array
 	 * @param	array|object	$params	params to cast
+	 * @return	array					converted object
 	 */
 	public static function castToArray($params): array
 	{
@@ -23,6 +24,7 @@ class Utils
 	/**
 	 * casts params in object format to array
 	 * @param	array|object	$params	params to cast
+	 * @return	object					converted array
 	 */
 	public static function castToObject($params): object
 	{

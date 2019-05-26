@@ -4,10 +4,17 @@ namespace Swolley\Database\Utils;
 use Swolley\Database\Exceptions\UnexpectedValueException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Utils\Utils;
+use MongoDB\BSON\Regex;
 
 class QueryBuilder
 {
-	public function createQuery(string $query, array $params = [])
+	/**
+	 * generic query constructor
+	 * @param	string	$query	query string
+	 * @param	array	$params	values to be binded
+	 * @return	object			composed query data
+	 */
+	public function createQuery(string $query, array $params = []): object
 	{
 		if (preg_match('/^select/i', $query) === 1) {
 			return self::parseSelect($query, $params);
@@ -24,7 +31,13 @@ class QueryBuilder
 		}
 	}
 
-	public function parseInsert(string $query, array $params = [])
+	/**
+	 * insert query constructor
+	 * @param	string	$query	query string
+	 * @param	array	$params	values to be binded
+	 * @return	object			composed query data
+	 */
+	public function parseInsert(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
 		//recognize ignore keyword
@@ -67,7 +80,6 @@ class QueryBuilder
 		if (preg_match('/^values/i', array_shift($query)[0]) === 0) {
 			throw new UnexpectedValueException('columns list must be followed by VALUES keyword');
 		}
-
 		$values_list = preg_split('/,\s?/', preg_replace('/\(|\)/', '', array_shift($query)[0]));
 		if (count($values_list) === 0) {
 			throw new UnexpectedValueException('parseInsert needs to know columns\' values');
@@ -99,7 +111,13 @@ class QueryBuilder
 		];
 	}
 
-	public function parseDelete(string $query, array $params = [])
+	/**
+	 * delete query constructor
+	 * @param	string	$query	query string
+	 * @param	array	$params	values to be binded
+	 * @return	object			composed query data
+	 */
+	public function parseDelete(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
@@ -123,7 +141,6 @@ class QueryBuilder
 		//checks for where clauses
 		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
-
 			$query = self::splitsOnParenthesis($query);
 
 			//parse and nest parameters
@@ -138,14 +155,20 @@ class QueryBuilder
 		}
 
 		//query elements ready to be passed to driver function
-		return [
+		return (object)[
 			'type' => 'delete',
 			'table' => $table,
 			'params' => $final_nested
 		];
 	}
 
-	public function parseUpdate(string $query, array $params = [])
+	/**
+	 * insert query constructor
+	 * @param	string	$query	query string
+	 * @param	array	$params	values to be binded
+	 * @return	object			composed query data
+	 */
+	public function parseUpdate(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
@@ -159,7 +182,6 @@ class QueryBuilder
 		}
 		$query = array_slice($matches, 1);
 		unset($matches);
-
 		if (empty($query[0])) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
@@ -202,7 +224,7 @@ class QueryBuilder
 		}
 
 		//query elements ready to be passed to driver function
-		return [
+		return (object)[
 			'type' => 'update',
 			'table' => $table,
 			'params' => $parsed_params,
@@ -210,12 +232,17 @@ class QueryBuilder
 		];
 	}
 
-	public function parseSelect(string $query, array $params = [])
+	/**
+	 * insert query constructor
+	 * @param	string	$query	query string
+	 * @param	array	$params	values to be binded
+	 * @return	object			composed query data
+	 */
+	public function parseSelect(string $query, array $params = []): object
 	{
 		/*
+		TODO not handled yet
 		SELECT a,b FROM users WHERE age=33 ORDER BY name	$db->users->find(array("age" => 33), array("a" => 1, "b" => 1))->sort(array("name" => 1));
-		SELECT * FROM users WHERE name LIKE "%Joe%"	$db->users->find(array("name" => new MongoRegex("/Joe/")));
-		SELECT * FROM users WHERE name LIKE "Joe%"	$db->users->find(array("name" => new MongoRegex("/^Joe/")));
 		SELECT * FROM users ORDER BY name DESC	$db->users->find()->sort(array("name" => -1));
 		SELECT * FROM users LIMIT 20, 10	$db->users->find()->limit(10)->skip(20);
 		SELECT * FROM users LIMIT 1	$db->users->find()->limit(1);
@@ -236,7 +263,6 @@ class QueryBuilder
 		}
 		$query = array_slice($matches, 1);
 		unset($matches);
-
 		if (empty($query[0])) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
@@ -252,13 +278,21 @@ class QueryBuilder
 
 		//parse columns to select
 		$columns_list = preg_split('/,\s?/', array_shift($query)[0]);
-		$columns_list = array_map(function ($key) {
-			return trim(trim($key, '`'));
-		}, $columns_list);
+		$projection = [];
+		foreach( $columns_list as $key) {
+			$projection[trim(trim($key, '`'))] = 1;
+		};
+		unset($columns_list);
+		reset($projection);
 
-		if (count($columns_list) === 1 && $columns_list[0] === '*') {
-			$columns_list = [];
+		if (count($projection) === 1 && $projection[key($projection)] === '*') {
+			$projection = [];
 		}
+		$array_keys = array_keys($projection);
+		if(!in_array('_id', $array_keys)) {
+			$projection['_id'] = 0;
+		}
+		unset($array_keys);
 
 		//bypasse FROM keyword
 		if (preg_match('/^from\s/i', $query[0][0]) === 0) {
@@ -269,12 +303,9 @@ class QueryBuilder
 
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query)[0]);
-
 		if (count($query) > 0 && preg_match('/^where/i', $query[0][0]) === 1) {
 			array_shift($query);
-
 			$query = self::splitsOnParenthesis($query);
-
 			//parse and nest parameters
 			$i = 0;
 			$nested_level = 0;
@@ -291,11 +322,13 @@ class QueryBuilder
 			$final_nested = array_merge(['distinct' => $table], $final_nested);
 		}
 
-		return [
+		return (object)[
 			'type' => $isDistinct ? 'command' : 'select',
 			'table' => $table,
-			'params' => $columns_list,
-			'options' => $final_nested
+			'filter' => $final_nested,
+			'options' => [
+				'projection' => $projection 
+			],
 		];
 	}
 
@@ -333,7 +366,7 @@ class QueryBuilder
 			$params = [];
 		}
 
-		return [
+		return (object)[
 			'type' => 'procedure',
 			'name' => $procedure,
 			'params' => $params
@@ -366,8 +399,8 @@ class QueryBuilder
 					case '>=':
 						$operator = '$gte';
 						break;
-					default:
-						throw new UnexpectedValueException('Unrecognised operator');
+						/*default:
+						throw new UnexpectedValueException('Unrecognised operator');*/
 				}
 
 				$splitted[2] = self::castValue($splitted[2]);
@@ -377,6 +410,16 @@ class QueryBuilder
 				}
 
 				$where_params[] = [$splitted[0] => [$operator => $splitted[2]]];
+			} elseif (preg_match('/\slike\s/i', $query[$i]) === 1) {
+				$splitted = preg_split('/\slike\s/i', $query[$i]);
+				if(substr($splitted[1], 0, 1) === ':' && isset($params[substr($splitted[1], 1)])) {
+					$splitted[1] = $params[substr($splitted[1], 1)];
+				}
+				//first_char
+				$splitted[1] = substr($splitted[1], 0, 1) === '%' ? '^' . substr($splitted[1], 1) : $splitted[1];
+				//last char
+				$splitted[1] = substr($splitted[1], -1) === '%' ? substr($splitted[1], 0, -1) . '$' : $splitted[1];
+				$where_params[] = [trim($splitted[0], '`') => new Regex($splitted[1], 'i')];
 			} elseif (preg_match('/and|&&|or|\|\|/i', $query[$i]) === 1) {
 				$where_params[] = $query[$i];
 			} elseif ($query[$i] === '(') {
@@ -401,44 +444,48 @@ class QueryBuilder
 		/*if (count($query) < 3) {
 			throw new UnexpectedValueException('Possible error in query syntax');
 		}*/
-		if(count($query) === 1) {
+		if (count($query) === 1) {
 			$query = array_pop($query);
 		}
 
 		$nested_group = [];
 		$i = 1;
 		//start
-		do {
-			$cur = $query[$i];
-			$prev = $query[$i - 1];
-
-			if (count($prev) === 1) {
-				//single value with operator
-				$new_array = ['$' . strtolower($cur) => $prev];
-			} elseif (count($prev) > 1) {
-				//sub group of operators
-				$new_array['$' . strtolower($cur)] = $this->groupLogicalOperators($prev);
-			}
-
-			$first_key = key($new_array);
-			if (!isset($nested_group[$first_key])) {
-				$nested_group[$first_key] = $new_array[$first_key];
-			} else {
-				$nested_group[$first_key] = array_merge($nested_group[$first_key], $new_array[$first_key]);
-			}
-
-			$i = $i + 2;
-		} while ($i <= count($query) - 1);
-
-		//last sub array element
-		$i--;
-		$cur = $query[$i];
-		$new_array = count($cur) === 1 ? $cur : $this->groupLogicalOperators($cur);
-		$first_key = key($nested_group);
-		if (!isset($nested_group[$first_key])) {
-			$nested_group[$first_key] = $new_array;
+		if(!is_numeric(key($query))) {
+			$nested_group = array_merge($nested_group, $query);
 		} else {
-			$nested_group[$first_key] = array_merge($nested_group[$first_key], $new_array);
+			do {
+				$cur = $query[$i];
+				$prev = $query[$i - 1];
+
+				if (count($prev) === 1) {
+					//single value with operator
+					$new_array = ['$' . strtolower($cur) => $prev];
+				} elseif (count($prev) > 1) {
+					//sub group of operators
+					$new_array['$' . strtolower($cur)] = $this->groupLogicalOperators($prev);
+				}
+
+				$first_key = key($new_array);
+				if (!isset($nested_group[$first_key])) {
+					$nested_group[$first_key] = $new_array[$first_key];
+				} else {
+					$nested_group[$first_key] = array_merge($nested_group[$first_key], $new_array[$first_key]);
+				}
+
+				$i = $i + 2;
+			} while ($i <= count($query) - 1);
+
+			//last sub array element
+			$i--;
+			$cur = $query[$i];
+			$new_array = count($cur) === 1 ? $cur : $this->groupLogicalOperators($cur);
+			$first_key = key($nested_group);
+			if (!isset($nested_group[$first_key])) {
+				$nested_group[$first_key] = $new_array;
+			} else {
+				$nested_group[$first_key] = array_merge($nested_group[$first_key], $new_array);
+			}
 		}
 
 		return $nested_group;
@@ -503,7 +550,7 @@ class QueryBuilder
 	private static function splitsOnParenthesis(array $query): array
 	{
 		//splits on parentheses
-		$query = preg_split('/\s/', $query[0][0]);
+		$query = preg_split('/(?<!like)\s(?!like)/i', $query[0][0]);
 		for ($i = 0; $i < count($query); $i++) {
 			if (strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
 				$first_part = array_slice($query, 0, $i);
