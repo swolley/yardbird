@@ -69,7 +69,7 @@ class MongoExtended extends MongoDB implements IConnectable
 				return $this->command($query->options, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'select':
-				return $this->select($query->table, $query->filter, $query->options, $query->orderBy, $query->limit, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+				return $this->select($query->table, $query->filter, $query->options, $query->aggregate, $query->orderBy, $query->limit, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 				break;
 			case 'insert':
 				return $this->insert($query->table, $query->params, $query->ignore);
@@ -98,11 +98,14 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	public function select(string $collection, array $filter = [], $options = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $collection, array $filter = [], $options = [], array $aggregate = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($filter);
 			$st = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
+			if(!empty($aggregate)) {
+				$st->aggregate($aggregate);
+			}
 			
 			//ORDER BY
 			if(!empty($orderBy)) {

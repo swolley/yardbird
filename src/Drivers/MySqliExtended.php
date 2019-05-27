@@ -93,9 +93,25 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		return $result;
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
+		//FIELDS
 		$stringed_fields = '`' . join('`, `', $fields) . '`';
+
+		//JOINS
+		$stringed_joins = '';
+		foreach($join as $joined_table => $join_options) {
+			if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) {
+				throw new BadMethodCallException('Malformed join array');
+			}
+
+			$stringed_joins .= strtoupper($join_options['type']) 
+				. ' ON ' 
+				. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
+				. (isset($join_options['operator']) && preg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
+				. (preg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table.'.'.$join_options['joinedField'])
+				. ' ';
+		}
 
 		//WHERE
 		$stringed_where = '';
@@ -139,7 +155,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			$stringed_limit = "LIMIT {$stringed_limit}";
 		}
 
-		$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
+		$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} {$stringed_joins} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
 
 		if(!$st) {
 			throw new QueryException("Cannot prepare query. Check the syntax.");

@@ -42,6 +42,6 @@ class Utils
 	 */
 	public static function trimQueryString(string $query): string
 	{
-		return preg_replace('/\s\s+/', ' ', $query);
+		return rtrim(preg_replace('/\s\s+/', ' ', $query), ';');
 	}
 }
