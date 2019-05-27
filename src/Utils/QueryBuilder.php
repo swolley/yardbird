@@ -5,6 +5,7 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 use Swolley\Database\Exceptions\BadMethodCallException;
 use Swolley\Database\Utils\Utils;
 use MongoDB\BSON\Regex;
+use phpDocumentor\Reflection\Types\Boolean;
 
 class QueryBuilder
 {
@@ -14,18 +15,18 @@ class QueryBuilder
 	 * @param	array	$params	values to be binded
 	 * @return	object			composed query data
 	 */
-	public function createQuery(string $query, array $params = []): object
+	public function sqlToMongo(string $query, array $params = []): object
 	{
 		if (preg_match('/^select/i', $query) === 1) {
-			return self::parseSelect($query, $params);
+			return self::sqlSelectToMongo($query, $params);
 		} elseif (preg_match('/^insert/i', $query) === 1) {
-			return self::parseInsert($query, $params);
+			return self::sqlInsertToMongo($query, $params);
 		} elseif (preg_match('/^delete from/i', $query) === 1) {
-			return self::parseDelete($query, $params);
+			return self::sqlDeleteToMongo($query, $params);
 		} elseif (preg_match('/^update/i', $query) === 1) {
-			return self::parseUpdate($query, $params);
+			return self::sqlUpdateToMongo($query, $params);
 		} elseif (preg_match('/^call|exec|begin/i', $query) === 1) {
-			return self::parseProcedure($query, $params);
+			return self::sqlProcedureToMongo($query, $params);
 		} else {
 			throw new UnexpectedValueException('queryBuilder is unable to detect the query type');
 		}
@@ -37,24 +38,24 @@ class QueryBuilder
 	 * @param	array	$params	values to be binded
 	 * @return	object			composed query data
 	 */
-	public function parseInsert(string $query, array $params = []): object
+	public function sqlInsertToMongo(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
 		//recognize ignore keyword
 		$ignore = false;
 
-		$query = preg_split('/^(insert) (ignore\s)?(into) (`?\w+`?) \((.*)\) (values) \((.*)\)$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+		$query = preg_split('/^(insert) (ignore\s)?(into) (`?\w+`?)\s?\((.*)\) (values)\s?\((.*)\)$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 		if (empty($query)) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
 		//removes insert
 		array_shift($query);
-		if (preg_match('/ignore/i', $query[0]) === 1) {
+		if (count($query) > 0 && preg_match('/ignore/i', $query[0]) === 1) {
 			$ignore = true;
 			array_shift($query);
 		}
 
-		if (preg_match('/into/i', $query[0]) === 0) {
+		if (count($query) === 0 || preg_match('/into/i', $query[0]) === 0) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
 		array_shift($query);
@@ -62,7 +63,7 @@ class QueryBuilder
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query));
 		if (preg_match('/^values/i', $query[0]) === 1) {
-			throw new UnexpectedValueException('parseInsert needs to know columns\' names');
+			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 		}
 
 		//list of columns'names
@@ -71,7 +72,7 @@ class QueryBuilder
 			return preg_replace('/`|\s/', '', $key);
 		}, $keys_list);
 		if (count($keys_list) === 0) {
-			throw new UnexpectedValueException('parseInsert needs to know columns\' names');
+			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 		}
 
 		//list of columns'values
@@ -83,11 +84,11 @@ class QueryBuilder
 			return self::castValue($value);
 		}, $values_list);
 		if (count($values_list) === 0) {
-			throw new UnexpectedValueException('parseInsert needs to know columns\' values');
+			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' values');
 		}
 
 		if (count($keys_list) !== count($values_list)) {
-			throw new \Exception('Columns count must match values count');
+			throw new BadMethodCallException('Columns count must match values count');
 		}
 
 		//substitute params in array of values
@@ -116,7 +117,7 @@ class QueryBuilder
 	 * @param	array	$params	values to be binded
 	 * @return	object			composed query data
 	 */
-	public function parseDelete(string $query, array $params = []): object
+	public function sqlDeleteToMongo(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
@@ -156,11 +157,11 @@ class QueryBuilder
 	 * @param	array	$params	values to be binded
 	 * @return	object			composed query data
 	 */
-	public function parseUpdate(string $query, array $params = []): object
+	public function sqlUpdateToMongo(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
-		$query = preg_split('/^(update) (`?\w+`?) (set)\s?\((.*)\)\s?|(?:(where) (.*))$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+		$query = preg_split('/^(update) (`?\w+`?) (set) (.*)\s?|(?:(where) (.*))$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 		if (empty($query)) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
@@ -177,7 +178,7 @@ class QueryBuilder
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', array_shift($query));
 		if (count($keys_list) === 0) {
-			throw new UnexpectedValueException('parseInsert needs to know columns\' names');
+			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 		}
 
 		$parsed_params = [];
@@ -218,7 +219,7 @@ class QueryBuilder
 	 * @param	array	$params	values to be binded
 	 * @return	object			composed query data
 	 */
-	public function parseSelect(string $query, array $params = []): object
+	public function sqlSelectToMongo(string $query, array $params = []): object
 	{
 		/*
 		TODO not handled yet
@@ -344,7 +345,6 @@ class QueryBuilder
 		if(isset($order_fields)) {
 			$result['orderBy'] = $order_fields;
 		}
-
 		if(isset($limit)) {
 			$result['limit'] = $limit;
 		}
@@ -352,7 +352,13 @@ class QueryBuilder
 		return (object)$result;
 	}
 
-	public function parseProcedure(string $query, array $params = [])
+	/**
+	 * parse procedure query contructor
+	 * @param	string	$query	query string
+	 * @param	array	$params	parameters
+	 * @return	object	composed query
+	 */
+	public function sqlProcedureToMongo(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
 		$query = preg_match('/^call|begin/i', $query) === 1
@@ -392,6 +398,14 @@ class QueryBuilder
 		];
 	}
 
+	/**
+	 * converts operator to mongo syntax and creates nested hierarchy on parenthesis
+	 * @param	string	$query	query string
+	 * @param	array	$params	parameters
+	 * @param	integer	$i		index
+	 * @param	integer	$nested_level	level of nesting
+	 * @return	object	composed query
+	 */
 	public function parseOperators(array &$query, array &$params, int &$i, int &$nested_level)
 	{
 		$where_params = [];
@@ -456,6 +470,10 @@ class QueryBuilder
 		return $where_params;
 	}
 
+	/**
+	 * groups fields by logical operators
+	 * @param	array	$query	query structure
+	 */
 	public function groupLogicalOperators(array $query)
 	{
 		if (count($query) === 1) {
@@ -505,6 +523,12 @@ class QueryBuilder
 		return $nested_group;
 	}
 
+	/**
+	 * cast values to their types
+	 * @param	mixed	$value	value to parse
+	 * @return	mixed	parsed value
+	 * 
+	 */
 	public static function castValue($value)
 	{
 		if (preg_match("/^'|\"\w+'|\"$/", $value)) {
@@ -518,6 +542,11 @@ class QueryBuilder
 		}
 	}
 
+	/**
+	 * change query operators to correct sql syntax
+	 * @param	string	$query	query string
+	 * @return	string	parsed operators
+	 */
 	public static function operatorsToStandardSyntax(string $query): string
 	{
 		$query = preg_replace("/\s?&&\s?/", ' AND ', $query);
@@ -526,6 +555,11 @@ class QueryBuilder
 		return $query;
 	}
 
+	/**
+	 * change named placeholders to question marks (mysqli driver does not support named placeholders)
+	 * @param	string	$query	query string
+	 * @param	array	$params	parameter's list
+	 */
 	public static function colonsToQuestionMarksPlaceholders(string &$query, array &$params): void
 	{
 		$total_params = count($params);
@@ -561,6 +595,11 @@ class QueryBuilder
 		}
 	}
 
+	/**
+	 * splits query string on parenthesis
+	 * @param	array	$query	query string
+	 * @return	array	splitted query string
+	 */
 	private static function splitsOnParenthesis(array $query): array
 	{
 		//splits on parentheses
@@ -591,5 +630,116 @@ class QueryBuilder
 		}
 
 		return $query;
+	}
+
+	/**
+	 * composes join portion of the query
+	 * @param	array	$join	join parameters
+	 * @return	string	query portion
+	 */
+	public static function joinsToSql(array $join): string 
+	{
+		$stringed_joins = '';
+		foreach($join as $joined_table => $join_options) {
+			if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) {
+				throw new BadMethodCallException('Malformed join array');
+			}
+
+			$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
+				. ' ON ' 
+				. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
+				. (isset($join_options['operator']) && preg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
+				. (preg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table.'.'.$join_options['joinedField'])
+				. ' ';
+		}
+
+		return $stringed_joins;
+	}
+
+	/**
+	 * composes order by portion of the query
+	 * @param	array	$orderBy	order by parameters
+	 * @return	string	query portion
+	 */
+	public static function orderByToSql(array $orderBy): string
+	{
+		$stringed_order_by = '';
+		foreach($orderBy as $key => $value) {
+			if($value === 1) {
+				$direction = 'ASC';
+			} elseif($value === -1) {
+				$direction = 'DESC';
+			} else {
+				throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
+			}
+
+			$stringed_order_by .= "{$key} {$direction},"; 
+		}
+		rtrim($stringed_order_by, ',');
+		if(!empty($stringed_order_by)) {
+			$stringed_order_by = "ORDER BY {$stringed_order_by}";
+		}
+
+		return $stringed_order_by;
+	}
+
+	/**
+	 * composes limit portion of the query
+	 * @param	array	$limit	join parameters
+	 * @return	string	query portion
+	 */
+	public static function limitToSql($limit): string
+	{
+		if(is_null($limit)) {
+			$stringed_limit = '';
+		} elseif(is_integer($limit)){
+			$stringed_limit = $limit;
+		} elseif(is_array($limit) && count($limit) === 2) {
+			$stringed_limit = join(',', $limit);
+		} else {
+			throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
+		}
+		if(!empty($stringed_limit)) {
+			$stringed_limit = "LIMIT {$stringed_limit}";
+		}
+
+		return $stringed_limit;
+	}
+
+	/**
+	 * composes where portion of the query
+	 * @param	array	$where						where parameters
+	 * @param	boolean	$questionMarkPlaceholders	use question marks instead of named placeholders
+	 * @return	string	query portion
+	 */
+	public static function whereToSql($where, bool $questionMarkPlaceholders = false): string
+	{
+		$stringed_where = '';
+		foreach ($where as $key => $value) {
+			$stringed_where .= "`$key`=" . ($questionMarkPlaceholders ? '?' : ":{$key}") . " AND ";
+		}
+		$stringed_where = rtrim($stringed_where, 'AND ');
+		if(!empty($stringed_where)) {
+			$stringed_where = "WHERE {$stringed_where}";
+		}
+
+		return $stringed_where;
+	}
+
+	/**
+	 * composes values list portion of the query
+	 * @param	array	$params						where parameters
+	 * @param	boolean	$questionMarkPlaceholders	use question marks instead of named placeholders
+	 * @return	string	query portion
+	 */
+	public static function valuesListToSql(array $params, bool $questionMarkPlaceholders = false): string
+	{
+		$values = '';
+		foreach ($params as $key => $value) {
+			$values .= "`$key`=" . ($questionMarkPlaceholders ? '?' : ":{$key}") . ", ";
+		}
+		$values = rtrim($values, ', ');
+
+		return $values;
 	}
 }

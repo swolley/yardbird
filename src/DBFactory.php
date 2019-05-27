@@ -18,6 +18,11 @@ final class DBFactory
 	const FETCH_CLASS = 8;
 	const FETCH_PROPS_LATE = 1048576;
 
+	/**
+	 * @param	array	$connectionParameters	connection parameters
+	 * @param	boolean	$debugMode				debug mode
+	 * @return	IConnectable	driver superclass
+	 */
 	public function __invoke(array $connectionParameters, bool $debugMode = false): IConnectable
 	{
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) {
@@ -39,7 +44,8 @@ final class DBFactory
 	}
 
 	/**
-	 * @param	string	driver
+	 * @param	string		$driver	requested type of connection
+	 * @return	string|null			driver or null if no driver compatible
 	 */
 	private static function checkExtension(string $driver): ?string
 	{

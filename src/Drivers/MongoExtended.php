@@ -16,15 +16,21 @@ use MongoDB\Driver\Command as MongoCmd;
 use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
 use MongoDB\BSON\Regex;
-use MongoLog;
+use MongoDB\BSON\ObjectID;
+//use MongoLog;
 
 class MongoExtended extends MongoDB implements IConnectable
 {
+	/**
+	 * @var	string	$_dbName	db name
+	 * @var	boolean	$_debugMode	enables debug mode
+	 */
 	private $_dbName;
 	private $_debugMode;
 
 	/**
-	 * @param	array	$params	connection parameters
+	 * @param	array	$params		connection parameters
+	 * @param	bool	$debugMode	debug mode
 	 */
 	public function __construct(array $params, bool $debugMode = false)
 	{
@@ -60,10 +66,10 @@ class MongoExtended extends MongoDB implements IConnectable
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$params = Utils::castToArray($params);
-		$query = (new QueryBuilder)->createQuery($query, $params);
+		$query = (new QueryBuilder)->sqlToMongo($query, $params);
 		switch ($query->type) {
 			case 'command':
 				return $this->command($query->options, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
@@ -105,8 +111,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			$st = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
 			if(!empty($aggregate)) {
 				$st->aggregate($aggregate);
-			}
-			
+			}	
 			//ORDER BY
 			if(!empty($orderBy)) {
 				foreach($orderBy as $value) {
@@ -116,7 +121,6 @@ class MongoExtended extends MongoDB implements IConnectable
 				}
 				$st->sort($orderBy);
 			}
-
 			//LIMIT
 			if(!is_null($limit)) {
 				if(is_integer($limit)){
@@ -141,7 +145,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			self::bindParams($params);
 			$response = $this->{$this->_dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
 
-			return $response->getInsertedId()['oid'];
+			return $response->getInsertedId()->__toString();
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -153,9 +157,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			$where = [];
 		}
 
-		if (gettype($where) !== 'array') {
-			throw new UnexpectedValueException('$where param must be of type array');
-		}
+		if (gettype($where) !== 'array') throw new UnexpectedValueException('$where param must be of type array');
 
 		$params = Utils::castToArray($params);
 		try {
@@ -175,9 +177,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			$where = [];
 		}
 
-		if (gettype($where) !== 'array') {
-			throw new UnexpectedValueException('$where param must be of type array');
-		}
+		if (gettype($where) !== 'array') throw new UnexpectedValueException('$where param must be of type array');
 
 		try {
 			self::bindParams($where);
@@ -211,8 +211,7 @@ class MongoExtended extends MongoDB implements IConnectable
 				break;
 			case DBFactory::FETCH_OBJ:
 				$st->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
-				break;
-				
+				break;	
 				//case DBFactory::FETCH_CLASS:
 				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
 				//	break;
@@ -225,7 +224,7 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public static function bindParams(array &$params, &$st = null): bool
 	{
-		foreach ($params as &$value) {
+		foreach ($params as $key => &$value) {
 			$varType = is_bool($value) ? FILTER_VALIDATE_BOOLEAN : (is_int($value) ? FILTER_VALIDATE_INT : (is_float($value) ? FILTER_VALIDATE_FLOAT : FILTER_DEFAULT));
 			$options = [
 				'options' => [
@@ -236,11 +235,16 @@ class MongoExtended extends MongoDB implements IConnectable
 			if ($varType === FILTER_VALIDATE_BOOLEAN) {
 				$options['flags'] = FILTER_NULL_ON_FAILURE;
 			}
+			
 			$value = $value instanceof Regex 
 				? new Regex(filter_var($value->getPattern(), $varType, $options))
 				: filter_var($value, $varType, $options);
 
 			if (is_null($value)) return false;
+
+			if($key === '_id') {
+				$value = new ObjectID($value); 
+			}
 		}
 
 		return true;

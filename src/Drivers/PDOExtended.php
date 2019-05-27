@@ -12,10 +12,14 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 
 class PDOExtended extends \PDO implements IRelationalConnectable
 {
+	/**
+	 * @var	boolean	$_debugMode	enables debug mode
+	 */
 	private $_debugMode;
 
 	/**
 	 * @param	array	$params	connection parameters
+	 * @param	bool	$debugMode	debug mode
 	 */
 	public function __construct(array $params, bool $debugMode = false)
 	{
@@ -88,7 +92,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		];
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$params = Utils::castToArray($params);
 		$query = Utils::trimQueryString($query);
@@ -121,72 +125,23 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		try {
 			//FIELDS
 			$stringed_fields = '`' . join('`, `', $fields) . '`';
-
 			//JOINS
-			$stringed_joins = '';
-			foreach($join as $joined_table => $join_options) {
-				if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) {
-					throw new BadMethodCallException('Malformed join array');
-				}
-
-				$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
-					. ' ON ' 
-					. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
-					. (isset($join_options['operator']) && preg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
-					. (preg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table.'.'.$join_options['joinedField'])
-					. ' ';
-			}
-
+			$stringed_joins = QueryBuilder::joinsToSql($join);
 			//WHERE
-			$stringed_where = '';
-			foreach ($where as $key => $value) {
-				$stringed_where .= "`$key`=:$key AND ";
-			}
-			$stringed_where = rtrim($stringed_where, 'AND ');
-			if(!empty($stringed_where)) {
-				$stringed_where = "WHERE {$stringed_where}";
-			}
-
+			$stringed_where = QueryBuilder::whereToSql($where);
 			//ORDER BY
-			$stringed_order_by = '';
-			foreach($orderBy as $key => $value) {
-				if($value === 1) {
-					$direction = 'ASC';
-				} elseif($value === -1) {
-					$direction = 'DESC';
-				} else {
-					throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
-				}
-
-				$stringed_order_by .= "{$key} {$direction},"; 
-			}
-			rtrim($stringed_order_by, ',');
-			if(!empty($stringed_order_by)) {
-				$stringed_order_by = "ORDER BY {$stringed_order_by}";
-			}
-
+			$stringed_order_by = QueryBuilder::orderByToSql($orderBy);
 			//LIMIT
-			if(is_null($limit)) {
-				$stringed_limit = '';
-			} elseif(is_integer($limit)){
-				$stringed_limit = $limit;
-			} elseif(is_array($limit) && count($limit) === 2) {
-				$stringed_limit = join(',', $limit);
-			} else {
-				throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
-			}
-			if(!empty($stringed_limit)) {
-				$stringed_limit = "LIMIT {$stringed_limit}";
-			}
+			$stringed_limit = QueryBuilder::limitToSql($limit);
 
 			$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} {$stringed_joins} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
-			if(!self::bindParams($where, $st)) {
-				throw new UnexpectedValueException('Cannot bind parameters');
-			}
+			
+			if(!self::bindParams($where, $st)) throw new UnexpectedValueException('Cannot bind parameters');
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
+			
 			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
@@ -196,15 +151,11 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	public function insert(string $table, $params, bool $ignore = false)
 	{
 		$params = Utils::castToArray($params);
-
 		try {
-			//ksort($params);
 			$keys_list = array_keys($params);
 			$keys = '`' . implode('`, `', $keys_list) . '`';
 			$values = ':' . implode(', :', $keys_list);
-
 			$this->beginTransaction();
-
 			$driver = $this->getAttribute(self::ATTR_DRIVER_NAME);
 			$st = null;
 			switch ($driver) {
@@ -218,17 +169,13 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 					$st = null;
 			}
 
-			if (is_null($st)) {
-				throw new \Exception('Requested driver still not supported');
-			}
-
-			if(!self::bindParams($params, $st)) {
-				throw new UnexpectedValueException('Cannot bind parameters');
-			}
+			if (is_null($st)) throw new \Exception('Requested driver still not supported');
+			if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
+			
 			$inserted_id = $this->lastInsertId();
 			$total_inserted = $st->rowCount();
 			$this->commit();
@@ -243,7 +190,6 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	public function update(string $table, $params, $where = null): bool
 	{
 		$params = Utils::castToArray($params);
-
 		if(!is_null($where) && gettype($where) !== 'string') {
 			throw new UnexpectedValueException('$where param must be of type string');
 		} elseif(!is_null($where)) {
@@ -252,21 +198,13 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				$where = QueryBuilder::operatorsToStandardSyntax($where);
 			}
 		}
-		
 		//TODO how to bind where clause?
-
 		try {
-			//ksort($params);
-			$values = '';
-			foreach ($params as $key => $value) {
-				$values .= "`$key`=:$key, ";
-			}
-			$values = rtrim($values, ', ');
+			$values = QueryBuilder::valuesListToSql($params);
 
 			$st = $this->prepare("UPDATE `{$table}` SET {$values}" . (!is_null($where) ? " WHERE {$where}" : ''));
-			if(!self::bindParams($params, $st)) {
-				throw new UnexpectedValueException('Cannot bind parameters');
-			}
+			
+			if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
@@ -290,11 +228,8 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 
 		try {
-			//ksort($params);
 			$st = $this->prepare("DELETE FROM {$table}" . (!is_null($where) ? " WHERE {$where}" : ''));
-			if(!self::bindParams($params, $st)) {
-				throw new UnexpectedValueException('Cannot bind parameters');
-			}
+			if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
 			if(!$st->execute()) {
 				$error = $st->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
@@ -315,18 +250,15 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				$procedure_in_params .= ":$key, ";
 			}
 			$procedure_in_params = rtrim($procedure_in_params, ', ');
-
 			//output params
-			$procedure_out_params = '';
-			foreach ($outParams as $value) {
-				$procedure_out_params .= ":$value, ";
-			}
-			$procedure_out_params = rtrim($procedure_out_params, ', ');
-
+			$procedure_out_params = rtrim(array_reduce($outParams, function($total, $value) {
+				return $total .= ":$value, ";
+			}, ''), ', ');
+			
 			$st = $this->prepare($this->constructProcedureString($name, $procedure_in_params, $procedure_out_params));
-			if(!self::bindParams($inParams, $st)) {
-				throw new UnexpectedValueException('Cannot bind parameters');
-			}
+			
+			if(!self::bindParams($inParams, $st)) throw new UnexpectedValueException('Cannot bind parameters');
+
 			$outResult = [];
 			self::bindOutParams($outParams, $st, $outResult);
 			if(!$st->execute()) {
@@ -334,11 +266,9 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
 
-			if (count($outParams) > 0) {
-				return $outResult;
-			} else {
-				return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
-			}
+			return count($outParams) > 0 
+				? $outResult 
+				: self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
@@ -357,14 +287,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public static function bindParams(array &$params, &$st = null): bool
 	{
-		// if(preg_match_all('/:[\S]*/', $st->queryString) > count($params)) {
-		// 	throw new BadMethodCallException("Not enough values to bind placeholders");
-		// }
-
 		foreach ($params as $key => $value) {
-			/*if(gettype($value) === 'array') {
-				$value = preg_replace('/\[|\]/', '', json_encode($value, JSON_UNESCAPED_SLASHES));
-			}*/
 			$varType = is_null($value) ? self::PARAM_NULL : (is_bool($value) ? self::PARAM_BOOL : (is_int($value) ? self::PARAM_INT : self::PARAM_STR));
             if (!$st->bindValue(":$key", $value, $varType)) {
                 return false;
@@ -407,12 +330,9 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
 
-		if (is_null($connect_data_name)) {
-			throw new BadMethodCallException("Missing paramters");
-		}
+		if (is_null($connect_data_name)) throw new BadMethodCallException("Missing paramters");
 
 		$connect_data_value = $params[$connect_data_name];
-
 		$tns = preg_replace(
 			"/\n\r|\n|\r|\n\r|\t|\s/",
 			'',
@@ -455,9 +375,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				$procedure_string = null;
 		}
 
-		if (is_null($procedure_string)) {
-			throw new \Exception('Requested driver still not supported');
-		}
+		if (is_null($procedure_string)) throw new \Exception('Requested driver still not supported');
 
 		return str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string);
 	}

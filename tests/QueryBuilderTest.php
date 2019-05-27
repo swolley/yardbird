@@ -10,76 +10,76 @@ use Swolley\Database\Exceptions\UnexpectedValueException;
 final class QueryBuilderTest extends TestCase
 {
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
-	public function test_createQuery_should_return_exception_if_not_recognized_a_valid_query(): void
+	public function test_sqlToMongo_should_return_exception_if_not_recognized_a_valid_query(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		(new QueryBuilder)->createQuery('invalid query');
+		(new QueryBuilder)->sqlToMongo('invalid query');
 	}
 
-	public function test_createQuery_should_return_array_if_parameters_are_correct(): void
-	{
-		$queryBuilder = new QueryBuilder();
-		$query = $queryBuilder->createQuery('SELECT id FROM table');
-		$this->assertEquals('array', gettype($query));
-		$this->assertEquals('select', $query['type']);
-		$this->assertEquals('table', $query['table']);
-		$this->assertEquals(['id'], $query['params']);
-		$this->assertTrue(empty($query['options']));
-		unset($query);
-
-		$query = $queryBuilder->createQuery('INSERT INTO table(a, b) VALUES(:a, :b)');
-		$this->assertEquals('array', gettype($query));
-		$this->assertEquals('insert', $query['type']);
-		$this->assertEquals('table', $query['table']);
-		$this->assertEquals(['a' => ':a', 'b' => ':b'], $query['params']);
-		$this->assertTrue(empty($query['options']));
-		unset($query);
-
-		$query = $queryBuilder->createQuery('UPDATE table SET a=:a, b=:b');
-		$this->assertEquals('array', gettype($query));
-		$this->assertEquals('update', $query['type']);
-		$this->assertEquals('table', $query['table']);
-		$this->assertEquals(['a' => 'a', 'b' => 'b'], $query['params']);
-		$this->assertTrue(empty($query['options']));
-		unset($query);
-
-		$query = $queryBuilder->createQuery('DELETE FROM table');
-		$this->assertEquals('array', gettype($query));
-		$this->assertEquals('delete', $query['type']);
-		$this->assertEquals('table', $query['table']);
-		$this->assertEquals([], $query['params']);
-		$this->assertTrue(empty($query['options']));
-		unset($query);
-
-		$query = $queryBuilder->createQuery('CALL procedure()');
-		$this->assertEquals('array', gettype($query));
-		$this->assertEquals('procedure', $query['type']);
-		$this->assertEquals('procedure', $query['name']);
-		$this->assertEquals([], $query['params']);
-		$this->assertTrue(empty($query['options']));
-		unset($query);
-	}
-
-	public function test_parseInsert_should_throw_exception_if_any_syntax_error(): void
+	public function test_sqlToMongo_should_return_object_if_parameters_are_correct(): void
 	{
 		$queryBuilder = new QueryBuilder();
-		$this->expectException(UnexpectedValueException::class);
-		$queryBuilder->createQuery('INSERT table');
+		$query = $queryBuilder->sqlToMongo('SELECT id FROM table');
+		$this->assertEquals('object', gettype($query));
+		$this->assertEquals('select', $query->type);
+		$this->assertEquals('table', $query->table);
+		$this->assertEquals([], $query->filter);
+		$this->assertEquals(['projection' => ['id' => 1, '_id' => 0]], $query->options);
+		unset($query);
 
-		$this->expectException(UnexpectedValueException::class);
-		$queryBuilder->createQuery('INSERT INTO table');
+		$query = $queryBuilder->sqlToMongo('INSERT INTO table(a, b) VALUES(:a, :b)', ['a' => 1, 'b' => 2]);
+		$this->assertEquals('object', gettype($query));
+		$this->assertEquals('insert', $query->type);
+		$this->assertEquals('table', $query->table);
+		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
+		$this->assertTrue(empty($query->options));
+		unset($query);
+
+		$query = $queryBuilder->sqlToMongo('UPDATE table SET a=:a, b=:b', ['a' => 1, 'b' => 2]);
+		$this->assertEquals('object', gettype($query));
+		$this->assertEquals('update', $query->type);
+		$this->assertEquals('table', $query->table);
+		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
+		$this->assertTrue(empty($query->options));
+		unset($query);
+
+		$query = $queryBuilder->sqlToMongo('DELETE FROM table');
+		$this->assertEquals('object', gettype($query));
+		$this->assertEquals('delete', $query->type);
+		$this->assertEquals('table', $query->table);
+		$this->assertEquals([], $query->params);
+		$this->assertTrue(empty($query->options));
+		unset($query);
+
+		$query = $queryBuilder->sqlToMongo('CALL procedure()');
+		$this->assertEquals('object', gettype($query));
+		$this->assertEquals('procedure', $query->type);
+		$this->assertEquals('procedure', $query->name);
+		$this->assertEquals([], $query->params);
+		$this->assertTrue(empty($query->options));
+		unset($query);
 	}
 
-	public function test_parseInsert_should_throw_exception_if_columns_count_differs_from_values(): void
+	public function test_sqlInsertToMongo_should_throw_exception_if_any_syntax_error(): void
+	{
+		$queryBuilder = new QueryBuilder();
+		$this->expectException(UnexpectedValueException::class);
+		$queryBuilder->sqlToMongo('INSERT table');
+
+		$this->expectException(UnexpectedValueException::class);
+		$queryBuilder->sqlToMongo('INSERT INTO table');
+	}
+
+	public function test_sqlInsertToMongo_should_throw_exception_if_columns_count_differs_from_values(): void
 	{
 		$this->expectException(\Exception::class);
-		(new QueryBuilder)->parseInsert('INSERT INTO table (`column1`, `missingColumn`) VALUES(:column)');
+		(new QueryBuilder)->sqlInsertToMongo('INSERT INTO table (`column1`, `missingColumn`) VALUES(:column)');
 	}
 
-	public function test_parseInsert_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlInsertToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->parseInsert('INSERT IGNORE INTO table (`column1`) VALUES(:column)');
-		$response = [
+		$query = (new QueryBuilder)->sqlInsertToMongo('INSERT IGNORE INTO table (`column1`) VALUES(:column)');
+		$response = (object)[
 			'type' => 'insert',
 			'table' => 'table',
 			'params' => ['column1' => ':column'],
@@ -88,15 +88,15 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
-	public function test_parseDelete_should_throw_exception_if_any_syntax_error(): void
+	public function test_sqlDeleteToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		(new QueryBuilder)->parseDelete('DELETE FROM table WHERE');
+		(new QueryBuilder)->sqlDeleteToMongo('DELETE FROM table WHERE');
 	}
 
-	public function test_parseDelete_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlDeleteToMongo_shold_return_array_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->parseDelete('DELETE FROM `table` WHERE (id<1 AND c<>2)');
+		$query = (new QueryBuilder)->sqlDeleteToMongo('DELETE FROM `table` WHERE (id<1 AND c<>2)');
 		$response = [
 			'type' => 'delete',
 			'table' => 'table',
@@ -105,15 +105,15 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
-	public function test_parseUpdate_should_throw_exception_if_any_syntax_error(): void
+	public function test_sqlUpdateToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		(new QueryBuilder)->parseUpdate("UPDATE WHERE `column` != 'value'");
+		(new QueryBuilder)->sqlUpdateToMongo("UPDATE WHERE `column` != 'value'");
 	}
 
-	public function test_parseUpdate_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlUpdateToMongo_shold_return_array_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->parseUpdate("UPDATE `table` SET id='value'");
+		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET id='value'");
 		$response = [
 			'type' => 'update',
 			'table' => 'table',
@@ -123,15 +123,15 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
-	public function test_parseSelect_should_throw_exception_if_any_syntax_error(): void
+	public function test_sqlSelectToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		(new QueryBuilder)->parseSelect("SELECT INTO `table` WHERE `column` > 'value'");
+		(new QueryBuilder)->sqlSelectToMongo("SELECT INTO `table` WHERE `column` > 'value'");
 	}
 
-	public function test_parseSelect_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlSelectToMongo_shold_return_array_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->parseSelect("SELECT * FROM `table`");
+		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT * FROM `table`");
 		$response = [
 			'type' => 'select',
 			'table' => 'table',
@@ -140,7 +140,7 @@ final class QueryBuilderTest extends TestCase
 		];
 		$this->assertEquals($response, $query);
 
-		$query = (new QueryBuilder)->parseSelect("SELECT DISTINCT * FROM `table`");
+		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT DISTINCT * FROM `table`");
 		$response = [
 			'type' => 'command',
 			'table' => 'table',
@@ -150,15 +150,15 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
-	public function test_parseProcedure_should_throw_exception_if_any_syntax_error(): void
+	public function test_sqlProcedureToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(BadMethodCallException::class);
-		(new QueryBuilder)->parseProcedure("CALL procedure_name (:value1, :value2)");
+		(new QueryBuilder)->sqlProcedureToMongo("CALL procedure_name (:value1, :value2)");
 	}
 
-	public function test_parseProcedure_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlProcedureToMongo_shold_return_array_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->parseProcedure("CALL procedure_name ()", []);
+		$query = (new QueryBuilder)->sqlProcedureToMongo("CALL procedure_name ()", []);
 		$response = [
 			'type' => 'procedure',
 			'name' => 'procedure_name',

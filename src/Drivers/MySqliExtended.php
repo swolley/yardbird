@@ -12,10 +12,14 @@ use Swolley\Database\Utils\QueryBuilder;
 
 class MySqliExtended extends \mysqli implements IRelationalConnectable
 {
+	/**
+	 * @var	boolean	$_debugMode	enables debug mode
+	 */
 	private $_debugMode;
 
 	/**
 	 * @param	array	$params	connection parameters
+	 * @param	bool	$debugMode	debug mode
 	 */
 	public function __construct(array $params, $debugMode = false)
 	{
@@ -68,28 +72,22 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		];
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$query = Utils::trimQueryString($query);
 		$query = QueryBuilder::operatorsToStandardSyntax($query);
 		$params = Utils::castToArray($params);
-
-		//ksort($params);
 		QueryBuilder::colonsToQuestionMarksPlaceholders($query, $params);			
 		
 		$st = $this->prepare($query);
-		if(!$st) {
-			throw new QueryException("Cannot prepare query. Check the syntax.");
-		}
-		if(!self::bindParams($params, $st)) {
-			throw new UnexpectedValueException('Cannot bind parameters');
-		}
-		if(!$st->execute()) {
-			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
-		}
 
+		if(!$st) throw new QueryException("Cannot prepare query. Check the syntax.");
+		if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!$st->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
+		
 		$result = self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		$st->close();
+		
 		return $result;
 	}
 
@@ -97,100 +95,38 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	{
 		//FIELDS
 		$stringed_fields = '`' . join('`, `', $fields) . '`';
-
 		//JOINS
-		$stringed_joins = '';
-		foreach($join as $joined_table => $join_options) {
-			if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) {
-				throw new BadMethodCallException('Malformed join array');
-			}
-
-			$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
-				. ' ON ' 
-				. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
-				. (isset($join_options['operator']) && preg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
-				. (preg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table.'.'.$join_options['joinedField'])
-				. ' ';
-		}
-
+		$stringed_joins = QueryBuilder::joinsToSql($join);
 		//WHERE
-		$stringed_where = '';
-		foreach ($where as $key => $value) {
-			$stringed_where .= "`$key`=? AND ";
-		}
-		$stringed_where = rtrim($stringed_where, 'AND ');
-		if(!empty($stringed_where)) {
-			$stringed_where = "WHERE {$stringed_where}";
-		}
-
+		$stringed_where = QueryBuilder::whereToSql($where, true);
 		//ORDER BY
-		$stringed_order_by = '';
-		foreach($orderBy as $key => $value) {
-			if($value === 1) {
-				$direction = 'ASC';
-			} elseif($value === -1) {
-				$direction = 'DESC';
-			} else {
-				throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
-			}
-
-			$stringed_order_by .= "{$key} {$direction},"; 
-		}
-		rtrim($stringed_order_by, ',');
-		if(!empty($stringed_order_by)) {
-			$stringed_order_by = "ORDER BY {$stringed_order_by}";
-		}
-
+		$stringed_order_by = QueryBuilder::orderByToSql($orderBy);
 		//LIMIT
-		if(is_null($limit)) {
-			$stringed_limit = '';
-		} elseif(is_integer($limit)){
-			$stringed_limit = $limit;
-		} elseif(is_array($limit) && count($limit) === 2) {
-			$stringed_limit = join(',', $limit);
-		} else {
-			throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
-		}
-		if(!empty($stringed_limit)) {
-			$stringed_limit = "LIMIT {$stringed_limit}";
-		}
-
+		$stringed_limit = QueryBuilder::limitToSql($limit);
 		$st = $this->prepare("SELECT {$stringed_fields} FROM {$table} {$stringed_joins} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
-
-		if(!$st) {
-			throw new QueryException("Cannot prepare query. Check the syntax.");
-		}
-		if(!self::bindParams($where, $st)) {
-			throw new UnexpectedValueException('Cannot bind parameters');
-		}
-		if(!$st->execute()) {
-			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
-		}
-
+		
+		if(!$st) throw new QueryException("Cannot prepare query. Check the syntax.");
+		if(!self::bindParams($where, $st)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!$st->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
+		
 		$result = self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		$st->close();
+
 		return $result;
 	}
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
 		$params = Utils::castToArray($params);
-
-		//ksort($params);
 		$keys_list = array_keys($params);
 		$keys = '`' . implode('`, `', $keys_list) . '`';
 		$values = rtrim(str_repeat("?, ", count($keys_list)), ', ');
-
 		$st = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `{$table}` ({$keys}) VALUES ({$values})");
-		if(!$st) {
-			throw new QueryException("Cannot prepare query. Check the syntax.");
-		}
-		if(!self::bindParams($params, $st)) {
-			throw new UnexpectedValueException('Cannot bind parameters');
-		}
-		if(!$st->execute()) {
-			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
-		}
+		
+		if(!$st) throw new QueryException("Cannot prepare query. Check the syntax.");
+		if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!$st->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
+
 		$inserted_id = $st->insert_id;
 		$total_inserted = $st->num_rows;
 		
@@ -201,30 +137,20 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	{
 		$params = Utils::castToArray($params);
 		$where = QueryBuilder::operatorsToStandardSyntax($where);
-
 		//TODO how to bind where clause?
-
-		//ksort($params);
-		$values = '';
-		foreach ($params as $key => $value) {
-			$values .= "`$key`=?, ";
-		}
-		$values = rtrim($values, ', ');
-
+		$values = QueryBuilder::valuesListToSql($params);
 		if(!is_null($where)) {
 			QueryBuilder::colonsToQuestionMarksPlaceholders($where, $params);
+			$where = " WHERE {$where}";
+		} else {
+			$where = '';
 		}
 
-		$st = $this->prepare("UPDATE `{$table}` SET {$values}" . (!is_null($where) ? " WHERE {$where}" : ''));
-		if(!$st) {
-			throw new QueryException("Cannot prepare query. Check the syntax.");
-		}
-		if(!self::bindParams($params, $st)) {
-			throw new UnexpectedValueException('Cannot bind parameters');
-		}
-		if(!$st->execute()) {
-			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
-		}
+		$st = $this->prepare("UPDATE `{$table}` SET {$values} {$where}");
+		
+		if(!$st) throw new QueryException("Cannot prepare query. Check the syntax.");
+		if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!$st->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 
 		return $st->num_rows > 0;
 	}
@@ -236,17 +162,11 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			QueryBuilder::colonsToQuestionMarksPlaceholders($where, $params);
 		}
 
-		//ksort($params);
-		$st = $this->prepare("DELETE FROM {$table} WHERE {$where}");
-		if(!$st) {
-			throw new QueryException("Cannot prepare query. Check the syntax.");
-		}
-		if(!self::bindParams($params, $st)) {
-			throw new UnexpectedValueException('Cannot bind parameters');
-		}
-		if(!$st->execute()) {
-			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
-		}
+		$st = $this->prepare("DELETE FROM {$table} {$where}");
+		
+		if(!$st) throw new QueryException("Cannot prepare query. Check the syntax.");
+		if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!$st->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 
 		return $st->num_rows > 0;
 	}
@@ -259,7 +179,6 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			$procedure_in_params .= "?, ";
 		}
 		$procedure_in_params = rtrim($procedure_in_params, ', ');
-
 		//output params
 		$procedure_out_params = '';
 		foreach ($outParams as $value) {
@@ -268,23 +187,17 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		$procedure_out_params = rtrim($procedure_out_params, ', ');
 
 		$st = $this->prepare($this->constructProcedureString($name, $procedure_in_params, $procedure_out_params));
-		if(!$st) {
-			throw new QueryException("Cannot prepare query. Check the syntax.");
-		}
-		if(!self::bindParams($inParams, $st)) {
-			throw new UnexpectedValueException('Cannot bind parameters');
-		}
+		
+		if(!$st) throw new QueryException("Cannot prepare query. Check the syntax.");
+		if(!self::bindParams($inParams, $st)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!$st->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
+		
 		$outResult = [];
-		if(!$st->execute()) {
-			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
-		}
 		self::bindOutParams($outParams, $st, $outResult);
 		
-		if (count($outParams) > 0) {
-			return $outResult;
-		} else {
-			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
-		}
+		return count($outParams) > 0 
+			? $outResult 
+			: self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 	}
 
 	public static function fetch($st, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
@@ -312,22 +225,9 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 
 	public static function bindParams(array &$params, &$st = null): bool
 	{
-		// if(preg_match_all('/:[\S]*/', $st->queryString) > count($params)) {
-		// 	throw new BadMethodCallException("Not enough values to bind placeholders");
-		// }
-
-		$varTypes = '';
-		foreach ($params as $value) {
-			/*if(gettype($value) === 'array') {
-				$value = preg_replace('/\[|\]/', '', json_encode($value, JSON_UNESCAPED_SLASHES));
-			}*/
-			$varTypes .= is_bool($value) || is_int($value) ? 'i' : (is_float($value) || is_double($value) ? 'd' : 's');
-        }
-		if (!$st->bind_param($varTypes, ...$params)) {
-			return false;
-		}
-
-        return true;
+		return $st->bind_param(array_reduce($params, function($total, $value) {
+			return $total .= is_bool($value) || is_int($value) ? 'i' : (is_float($value) || is_double($value) ? 'd' : 's');
+		}, ''), ...$params);
 	}
 
 	public static function bindOutParams(&$params, &$st, &$outResult, int $maxLength = 40000): void
@@ -371,9 +271,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 				$procedure_string = null;
 		}
 
-		if (is_null($procedure_string)) {
-			throw new \Exception('Requested driver still not supported');
-		}
+		if (is_null($procedure_string)) throw new \Exception('Requested driver still not supported');
 
 		return str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string);
 	}

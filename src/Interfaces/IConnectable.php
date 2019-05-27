@@ -28,7 +28,7 @@ interface IConnectable
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
 
 	/**
 	 * with sql drivers this is a very simple and limited SELECT query builder whit list of fields and AND-separated where clauses
@@ -48,7 +48,7 @@ interface IConnectable
 	 * @param   string  		$table      table name
 	 * @param   array|object	$params     assoc array with placeholder's name and relative values
 	 * @param   boolean 		$ignore		performes an 'insert ignore' query
-	 * @return  int|bool                 	new row id if key is autoincremental or boolean
+	 * @return  int|string|bool            	new row id if key is autoincremental or boolean
 	 */
 	function insert(string $table, $params, bool $ignore = false);
 
