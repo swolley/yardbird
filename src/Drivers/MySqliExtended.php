@@ -105,7 +105,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 				throw new BadMethodCallException('Malformed join array');
 			}
 
-			$stringed_joins .= strtoupper($join_options['type']) 
+			$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
 				. ' ON ' 
 				. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
 				. (isset($join_options['operator']) && preg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
