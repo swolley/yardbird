@@ -239,6 +239,8 @@ class QueryBuilder
 		if (empty($query)) {
 			throw new UnexpectedValueException('unable to parse query, check syntax');
 		}
+		//removes select
+		array_shift($query);
 		
 		//DISTINCT
 		$isDistinct = false;
@@ -246,29 +248,30 @@ class QueryBuilder
 			array_shift($query);
 			$isDistinct = true;
 		}
-		//removes select
-		array_shift($query);
 		
 		//COLUMNS
+		$rename_aliases = [];
 		$columns_list = preg_split('/,\s?/', trim(array_shift($query)));
 		$projection = [];
 		$is_unique_id = false;
 		foreach( $columns_list as $key) {
-			$trimmed = trim($key, '`');
-			if($trimmed === '_id') {
+			$splitted = preg_split('/ as /i', preg_replace('/`/', '', $key));
+			if($splitted[0] === '_id') {
 				$is_unique_id = true;
 			}
-			$projection[$trimmed] = 1;
+			$projection[$splitted[0]] = 1;
+
+			if(isset($splitted[1])) {
+				$rename_aliases[$splitted[0]] = $splitted[1];
+			}
 		};
-		if(!$is_unique_id) {
+		//reset($projection);
+		if (count($projection) === 1 && key($projection) === '*') {
+			$projection = [];
+		} elseif(!$is_unique_id) {
 			$projection['_id'] = 0;
 		}
 		unset($columns_list);
-		reset($projection);
-
-		if (count($projection) === 1 && $projection[key($projection)] === '*') {
-			$projection = [];
-		}
 
 		//FROM
 		if (preg_match('/from/i', $query[0]) === 0) {
@@ -314,27 +317,23 @@ class QueryBuilder
 		}
 
 		//ORDER BY
+		$order_fields = [];
 		if (count($query) > 0 && preg_match('/order by/i', $query[0]) === 1) {
 			array_shift($query);
 			$splitted = preg_split('/,\s?/', trim(array_shift($query)));
-			$order_fields = [];
 			foreach($splitted as $element) {
 				$key_order = preg_split('/\s/', $element);
 				$order_fields[$key_order[0]] = isset($key_order[1]) && strtolower($key_order[1]) === 'desc' ? -1 : 1;
 			}
 		}
 
+		$limit = null;
 		if (count($query) > 0 && preg_match('/limit/i', $query[0]) === 1) {
 			array_shift($query);
 			$limit = preg_split('/,/', array_shift($query));
 			if(count($limit) === 0) {
 				$limit = $limit[0];
 			}
-		}
-
-		//query elements ready to be passed to driver function
-		if ($isDistinct) {
-			$final_nested = array_merge(['distinct' => $table], $final_nested);
 		}
 
 		$result = [
@@ -344,14 +343,16 @@ class QueryBuilder
 			'options' => [
 				'projection' => $projection 
 			],
-			'aggregate' => $aggregate
+			'aggregate' => $aggregate,
+			'orderBy' => $order_fields,
+			'limit' => $limit
 		];
 
-		if(isset($order_fields)) {
-			$result['orderBy'] = $order_fields;
+		if($isDistinct) {
+			$result['options']['distinct'] = $table;
 		}
-		if(isset($limit)) {
-			$result['limit'] = $limit;
+		if(!empty($rename_aliases)) {
+			$result['options']['rename'] = $rename_aliases;
 		}
 
 		return (object)$result;

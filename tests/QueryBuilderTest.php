@@ -129,23 +129,30 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->sqlSelectToMongo("SELECT INTO `table` WHERE `column` > 'value'");
 	}
 
-	public function test_sqlSelectToMongo_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlSelectToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
 		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT * FROM `table`");
-		$response = [
+		$response = (object)[
 			'type' => 'select',
 			'table' => 'table',
-			'params' => [],
-			'options' => []
+			'filter' => [],
+			'options' => [
+				'projection' => []
+			],
+			'aggregate' => []
 		];
 		$this->assertEquals($response, $query);
 
 		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT DISTINCT * FROM `table`");
-		$response = [
+		$response = (object)[
 			'type' => 'command',
 			'table' => 'table',
-			'params' => [],
-			'options' => ['distinct' => 'table']
+			'filter' => [],
+			'options' => [
+				'distinct' => 'table',
+				'projection' => []
+			],
+			'aggregate' => []
 		];
 		$this->assertEquals($response, $query);
 	}
@@ -156,10 +163,10 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->sqlProcedureToMongo("CALL procedure_name (:value1, :value2)");
 	}
 
-	public function test_sqlProcedureToMongo_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlProcedureToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
 		$query = (new QueryBuilder)->sqlProcedureToMongo("CALL procedure_name ()", []);
-		$response = [
+		$response = (object)[
 			'type' => 'procedure',
 			'name' => 'procedure_name',
 			'params' => []
