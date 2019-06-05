@@ -132,6 +132,11 @@ class QueryBuilder
 		//WHERE
 		if (count($query) > 0 && preg_match('/where/i', $query[0]) === 1) {
 			array_shift($query);
+
+			if(count($query) === 0) {
+				throw new UnexpectedValueException('WHERE keyword must be followed by clauses');
+			}
+
 			$query = self::splitsOnParenthesis($query);
 			//parse and nest parameters
 			$i = 0;
