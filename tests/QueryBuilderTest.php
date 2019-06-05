@@ -139,7 +139,9 @@ final class QueryBuilderTest extends TestCase
 			'options' => [
 				'projection' => []
 			],
-			'aggregate' => []
+			'aggregate' => [],
+			'limit' => null,
+			'orderBy' => []
 		];
 		$this->assertEquals($response, $query);
 
@@ -152,7 +154,9 @@ final class QueryBuilderTest extends TestCase
 				'distinct' => 'table',
 				'projection' => []
 			],
-			'aggregate' => []
+			'aggregate' => [],
+			'limit' => null,
+			'orderBy' => []
 		];
 		$this->assertEquals($response, $query);
 	}
