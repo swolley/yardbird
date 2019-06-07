@@ -114,7 +114,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $st->debugDumpParams() : ''), $error[0]);
 			}
 			
-            return preg_match('/^select/i', $query) ? $st->rowCount() > 0 : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+            return preg_match('/^update/i', $query) ? $st->rowCount() > 0 : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
