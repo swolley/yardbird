@@ -102,7 +102,7 @@ class OCIExtended implements IRelationalConnectable
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		$response = preg_match('/^select/i', $query) ?: self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($st);
 		
 		return $response;
