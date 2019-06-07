@@ -94,7 +94,7 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->sqlDeleteToMongo('DELETE FROM table WHERE');
 	}
 
-	public function test_sqlDeleteToMongo_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlDeleteToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
 		$query = (new QueryBuilder)->sqlDeleteToMongo('DELETE FROM `table` WHERE (id<1 AND c<>2)');
 		$response = (object)[
@@ -111,7 +111,7 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->sqlUpdateToMongo("UPDATE WHERE `column` != 'value'");
 	}
 
-	public function test_sqlUpdateToMongo_shold_return_array_if_parameters_are_correct(): void
+	public function test_sqlUpdateToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
 		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET id='value'");
 		$response = (object)[
@@ -139,7 +139,9 @@ final class QueryBuilderTest extends TestCase
 			'options' => [
 				'projection' => []
 			],
-			'aggregate' => []
+			'aggregate' => [],
+			'limit' => null,
+			'orderBy' => []
 		];
 		$this->assertEquals($response, $query);
 
@@ -152,7 +154,9 @@ final class QueryBuilderTest extends TestCase
 				'distinct' => 'table',
 				'projection' => []
 			],
-			'aggregate' => []
+			'aggregate' => [],
+			'limit' => null,
+			'orderBy' => []
 		];
 		$this->assertEquals($response, $query);
 	}
