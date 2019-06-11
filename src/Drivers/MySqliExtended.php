@@ -85,7 +85,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		if(!self::bindParams($params, $st)) throw new UnexpectedValueException('Cannot bind parameters');
 		if(!$st->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		
-		$result = preg_match('/^update/i', $query) === 1 ? $st->num_rows > 0 : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		$result = preg_match('/^update|^insert|^delete/i', $query) === 1 ? $st->num_rows > 0 : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		$st->close();
 		
 		return $result;
