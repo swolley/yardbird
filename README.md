@@ -86,7 +86,7 @@ $connection->procedure($name, $inParams = [], $outParams = [], $fetchMode = DBFa
 * @param  int $fetchMode  (optional) PDO fetch mode. default = associative array
 * @param  int|string  $fetchModeParam (optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
 * @param  int|string  $fetchModePropsLateParams	(optional) fetch mode param to class contructor
-* @return mixed response array or error message
+* @return array|string response array or error message
 */
 $conncetion->sql($query, $params = [], $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, $fetchPropsLateParams = []);
 ```
