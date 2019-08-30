@@ -410,9 +410,9 @@ class QueryBuilder
 	 * @param	array	$params	parameters
 	 * @param	integer	$i		index
 	 * @param	integer	$nested_level	level of nesting
-	 * @return	object	composed query
+	 * @return	array	composed query
 	 */
-	public function parseOperators(array &$query, array &$params, int &$i, int &$nested_level)
+	public function parseOperators(array &$query, array &$params, int &$i, int &$nested_level): array
 	{
 		$where_params = [];
 		while ($i < count($query)) {
