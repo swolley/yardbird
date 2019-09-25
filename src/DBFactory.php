@@ -58,7 +58,7 @@ final class DBFactory
 			case 'mongodb':
 				return extension_loaded('mongodb') ? 'mongodb' : null;
 			case 'oci':
-				if(extension_loaded('pdo')) return 'pdo';	//correctly inside if. no pdo => tries oci8
+				if(extension_loaded('pdo')) return 'pdo';	//correctly inside if no pdo => tries oci8
 			case 'oci8':
 				return extension_loaded('oci8') ? 'oci8' : null;
 			case 'cubrid':

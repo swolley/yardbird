@@ -240,6 +240,43 @@ class OCIExtended implements IRelationalConnectable
 		return $response;
 	}
 
+	public function showTables(): array
+	{
+		//TODO tested only on mysql. to do on other drivers
+		return array_map(function ($table) {
+			return $table['TNAME'];
+		}, $this->sql('SELECT * FROM tab'));
+	}
+
+	public function showColumns($tables): array
+	{
+		$type = gettype($tables);
+		if ($type === 'string') {
+			$tables = [$tables];
+		} elseif ($type !== 'array') {
+			throw new UnexpectedValueException('Table name must be string or array of strings');
+		}
+
+		$columns = [];
+		foreach ($tables as $table) {
+			//TODO actually only for mysql
+			$cur = $this->sql("SELECT * FROM user_tab_cols WHERE table_name = '$table'");
+			$columns[$table] = array_map(function ($column) {
+				$column_name = $column['COLUMN_NAME'];
+				$column_data = [ 
+					'type' => $column['DATA_TYPE'] === 'NUMBER' ? ($column['DATA_SCALE'] > 0 ? 'float' : 'integer') : (strpos($column['DATA_TYPE'], 'CHAR') !== false ? 'string' : strtolower($column['DATA_TYPE'])),
+					'nullable' => $column['NULLABLE'] === 'Y',
+					'default' => $column['DATA_DEFAULT']
+				];
+
+				return [$column_name => $column_data];
+			}, $cur);
+		}
+
+		$found_tables = count($columns);
+		return $found_tables > 1 || $found_tables === 0 ? $columns : $columns[0];
+	}
+
 	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$response = [];
