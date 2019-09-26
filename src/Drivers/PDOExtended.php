@@ -10,9 +10,12 @@ use Swolley\YardBird\Exceptions\ConnectionException;
 use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Interfaces\TraitDatabase;
 
 class PDOExtended extends \PDO implements IRelationalConnectable
 {
+	use TraitDatabase;
+
 	/**
 	 * @var	boolean	$_debugMode	enables debug mode
 	 */
@@ -32,6 +35,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
 			}
 			$this->_debugMode = $debugMode;
+			$this->_driver = $params['driver'];
 		} catch (\PDOException $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode(), $e);
 		}

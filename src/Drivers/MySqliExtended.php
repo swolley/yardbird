@@ -9,9 +9,11 @@ use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Utils\QueryBuilder;
+use Swolley\YardBird\Interfaces\raitDatabase;
 
 class MySqliExtended extends \mysqli implements IRelationalConnectable
 {
+	use TraitDatabase;
 	/**
 	 * @var	boolean	$_debugMode	enables debug mode
 	 */
@@ -28,6 +30,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			parent::__construct(...[ $params['host'], $params['user'], $params['password'], $params['dbName'], $params['port'] ]);
 			$this->set_charset($params['charset']);
 			$this->_debugMode = $debugMode;
+			$this->_driver = 'mysql';
 		} catch(\Throwable $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}

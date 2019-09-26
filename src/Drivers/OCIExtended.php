@@ -9,14 +9,16 @@ use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Utils\QueryBuilder;
+use Swolley\YardBird\Interfaces\TraitDatabase;
 
 class OCIExtended implements IRelationalConnectable
 {
+	use TraitDatabase;
+
 	/**
 	 * @var	resource	$_db	db connection
 	 */
 	private $_db;
-	//private $_debugMode;
 
 	/**
 	 * @param	array	$params	connection parameters
@@ -35,6 +37,7 @@ class OCIExtended implements IRelationalConnectable
 			$this->_db = oci_connect(...[ $params['user'], $params['password'], $connection_string ]);
 			//$this->_debugMode = $debugMode;
 			oci_internal_debug($debugMode);
+			$this->_driver = 'oci';
 		} catch(\Throwable $e) {
 			throw new ConnectionException('Error while connecting to db');
 		}

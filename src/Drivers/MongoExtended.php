@@ -17,17 +17,18 @@ use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
 use MongoDB\BSON\Regex;
 use MongoDB\BSON\ObjectID;
-//use MongoLog;
+use Swolley\YardBird\Interfaces\TraitDatabase;
 
 class MongoExtended extends MongoDB implements IConnectable
 {
+	use TraitDatabase;
 	/**
 	 * @var	string	$_dbName	db name
 	 * @var	boolean	$_debugMode	enables debug mode
 	 */
 	private $_dbName;
 	private $_debugMode;
-
+	
 	/**
 	 * @param	array	$params		connection parameters
 	 * @param	bool	$debugMode	debug mode
@@ -41,6 +42,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			$this->listDatabases();
 			$this->_dbName = $params['dbName'];
 			$this->_debugMode = $debugMode;
+			$this->_driver = 'mongodb';
 		} catch (\Exception $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
