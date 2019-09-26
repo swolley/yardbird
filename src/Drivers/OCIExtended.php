@@ -241,7 +241,7 @@ class OCIExtended implements IRelationalConnectable
 			$columns[$table] = array_map(function ($column) {
 				$column_name = $column['COLUMN_NAME'];
 				$column_data = [ 
-					'type' => $column['DATA_TYPE'] === 'NUMBER' ? ($column['DATA_SCALE'] > 0 ? 'float' : 'integer') : (strpos($column['DATA_TYPE'], 'CHAR') !== false ? 'string' : strtolower($column['DATA_TYPE'])),
+					'type' => $column['DATA_TYPE'] === 'NUMBER' ? ($column['DATA_SCALE'] > 0 ? 'float' : 'integer') : (mb_strpos($column['DATA_TYPE'], 'CHAR') !== false ? 'string' : strtolower($column['DATA_TYPE'])),
 					'nullable' => $column['NULLABLE'] === 'Y',
 					'default' => $column['DATA_DEFAULT']
 				];

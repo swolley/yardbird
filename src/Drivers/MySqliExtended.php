@@ -175,7 +175,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		}
 		$procedure_out_params = rtrim($procedure_out_params, ', ');
 
-		$parameters_string = $procedure_in_params . (strlen($procedure_in_params) > 0 && strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
+		$parameters_string = $procedure_in_params . (mb_strlen($procedure_in_params) > 0 && mb_strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
 		$sth = $this->prepare("CALL $name($parameters_string);");
 		
 		if(!$sth) throw new QueryException("Cannot prepare query. Check the syntax.");

@@ -36,9 +36,9 @@ final class Connection
 				return new PDOExtended($connectionParameters, $debugMode);
 			case 'mysqli':
 				return new MySqliExtended($connectionParameters, $debugMode);
-			default:
-				throw new \Exception('Extension not supported with current php configuration', 500);
 		}
+		
+		throw new \Exception('Extension not supported with current php configuration', 500);
 	}
 
 	/**
@@ -47,8 +47,6 @@ final class Connection
 	 */
 	private static function checkExtension(string $driver): ?string
 	{
-		if (empty($driver)) throw new BadMethodCallException('No driver specified');
-
 		switch ($driver) {
 			case 'mongo':
 			case 'mongodb':
@@ -73,6 +71,6 @@ final class Connection
 				return extension_loaded('mysqli') ? 'mysqli' : null;
 		}
 
-		return null;
+		throw new BadMethodCallException("No driver found for '$driver'");
 	}
 }

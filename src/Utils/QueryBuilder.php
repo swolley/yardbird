@@ -341,7 +341,7 @@ class QueryBuilder
 			$parameters_list = preg_split('/,\s?/', array_shift($query));
 			foreach ($parameters_list as $key => $value) {
 				//checks if every placeholder has a value in params
-				if (strpos($value, ':') === 0) {
+				if (mb_strpos($value, ':') === 0) {
 					$key = ltrim($value, ':');
 					if (!array_key_exists($key, $params)) {
 						throw new BadMethodCallException("Missing corresponding value to bind in params array");
@@ -408,13 +408,13 @@ class QueryBuilder
 				$where_params[] = [$splitted[0] => [$operator => $splitted[2]]];
 			} elseif (preg_match('/\slike\s/i', $query[$idx]) === 1) {
 				$splitted = preg_split('/\slike\s/i', $query[$idx]);
-				if(substr($splitted[1], 0, 1) === ':' && isset($params[substr($splitted[1], 1)])) {
-					$splitted[1] = $params[substr($splitted[1], 1)];
+				if(mb_substr($splitted[1], 0, 1) === ':' && isset($params[mb_substr($splitted[1], 1)])) {
+					$splitted[1] = $params[mb_substr($splitted[1], 1)];
 				}
 				//first_char
-				$splitted[1] = substr($splitted[1], 0, 1) === '%' ? '^' . substr($splitted[1], 1) : $splitted[1];
+				$splitted[1] = mb_substr($splitted[1], 0, 1) === '%' ? '^' . mb_substr($splitted[1], 1) : $splitted[1];
 				//last char
-				$splitted[1] = substr($splitted[1], -1) === '%' ? substr($splitted[1], 0, -1) . '$' : $splitted[1];
+				$splitted[1] = mb_substr($splitted[1], -1) === '%' ? mb_substr($splitted[1], 0, -1) . '$' : $splitted[1];
 				$where_params[] = [trim($splitted[0], '`') => new Regex($splitted[1], 'i')];
 			} elseif (preg_match('/and|&&|or|\|\|/i', $query[$idx]) === 1) {
 				$where_params[] = $query[$idx];
@@ -528,7 +528,7 @@ class QueryBuilder
 	public static function colonsToQuestionMarksPlaceholders(string &$query, array &$params): void
 	{
 		$total_params = count($params);
-		$tot_question_placeholders = substr_count($query, '?');
+		$tot_question_placeholders = mb_substr_count($query, '?');
 		$colon_placeholders = [];
 		preg_match_all('/(:\w+)/i', $query, $colon_placeholders);
 		$colon_placeholders = array_shift($colon_placeholders);
@@ -564,25 +564,25 @@ class QueryBuilder
 		//splits on parentheses
 		$query = preg_split('/(?<!like)\s(?!like)/i', $query[0]);
 		for ($idx = 0; $idx < count($query); $idx++) {
-			if (strpos($query[$idx], '(') !== false || strpos($query[$idx], ')') !== false) {
+			if (mb_strpos($query[$idx], '(') !== false || mb_strpos($query[$idx], ')') !== false) {
 				$first_part = array_slice($query, 0, $idx);
 				$second_part = array_slice($query, $idx + 1);
-				if (substr($query[$idx], 0, 1) === '(') {
+				if (mb_substr($query[$idx], 0, 1) === '(') {
 					$first_part[] = '(';
-					$substr = substr($query[$idx], 1);
-					if ($substr !== ' ') {
-						$first_part[] = $substr;
+					$mb_substr = mb_substr($query[$idx], 1);
+					if ($mb_substr !== ' ') {
+						$first_part[] = $mb_substr;
 					}
-				} elseif (substr($query[$idx], -1, 1) === ')') {
-					$substr = substr($query[$idx], 0, -1);
-					if ($substr !== ' ') {
-						$first_part[] = $substr;
+				} elseif (mb_substr($query[$idx], -1, 1) === ')') {
+					$mb_substr = mb_substr($query[$idx], 0, -1);
+					if ($mb_substr !== ' ') {
+						$first_part[] = $mb_substr;
 					}
 					$first_part[] = ')';
 				}
 
 				$query = array_merge($first_part, $second_part);
-				if (substr(end($first_part), 0, 1) !== '(') {
+				if (mb_substr(end($first_part), 0, 1) !== '(') {
 					$idx++;
 				}
 			}

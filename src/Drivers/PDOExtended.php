@@ -286,7 +286,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			//output params
 			$procedure_out_params = rtrim(array_reduce($outParams, function ($total, $value) { return $total .= ":$value, "; }, ''), ', ');
 
-			$parameters_string = $procedure_in_params . (strlen($procedure_in_params) > 0 && strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
+			$parameters_string = $procedure_in_params . (mb_strlen($procedure_in_params) > 0 && mb_strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
 			$procedure_string = null;
 			switch ($this->getAttribute(self::ATTR_DRIVER_NAME)) {
 				case 'pgsql':
@@ -385,7 +385,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 					case 'mysql':
 						$column_name = $column['Field'];
 						$column_data = [ 
-							'type' => strpos($column['Type'], 'char') !== false || strpos($column['Type'], 'text') !== false ? 'string' : preg_replace("/int|year|month/", 'integer', preg_replace("/\(|\)|\\d|unsigned|big|small|tiny|\\s/i", '', strtolower($column['Type']))),
+							'type' => mb_strpos($column['Type'], 'char') !== false || mb_strpos($column['Type'], 'text') !== false ? 'string' : preg_replace("/int|year|month/", 'integer', preg_replace("/\(|\)|\\d|unsigned|big|small|tiny|\\s/i", '', strtolower($column['Type']))),
 							'nullable' => $column['Null'] === 'YES',
 							'default' => $column['Default']
 						];
@@ -393,7 +393,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 					case 'oci':
 						$column_name = $column['COLUMN_NAME'];
 						$column_data = [ 
-							'type' => $column['DATA_TYPE'] === 'NUMBER' ? ($column['DATA_SCALE'] > 0 ? 'float' : 'integer') : (strpos($column['DATA_TYPE'], 'CHAR') !== false ? 'string' : strtolower($column['DATA_TYPE'])),
+							'type' => $column['DATA_TYPE'] === 'NUMBER' ? ($column['DATA_SCALE'] > 0 ? 'float' : 'integer') : (mb_strpos($column['DATA_TYPE'], 'CHAR') !== false ? 'string' : strtolower($column['DATA_TYPE'])),
 							'nullable' => $column['NULLABLE'] === 'Y',
 							'default' => $column['DATA_DEFAULT']
 						];
