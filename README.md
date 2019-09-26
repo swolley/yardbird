@@ -1,4 +1,4 @@
-<img src="images/yardbird-icon.png" align="right"/>
+<img src="images/yardbird-icon-64x64.png" align="right"/>
 
 # yardBird
 **yardBird** is a wrapper for multiple types of databases (currently supported are all PDO drivers, Mysqli, OCI8, MongoDB). The library exposes common methods for crud functions and a parser class to translate sql queries to mongodb library syntax.
