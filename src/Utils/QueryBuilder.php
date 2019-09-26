@@ -696,7 +696,7 @@ class QueryBuilder
 	 */
 	public static function limitToSql($limit): string
 	{
-		if(is_null($limit)) {
+		if($limit === null) {
 			$stringed_limit = '';
 		} elseif(is_integer($limit)){
 			$stringed_limit = $limit;

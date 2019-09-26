@@ -96,9 +96,9 @@ class MongoExtended extends MongoDB implements IConnectable
 	{
 		//FIXME also options needs to be binded
 		try {
-			$st = $this->db->command($options);
+			$sth = $this->db->command($options);
 			
-			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			return self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -108,9 +108,9 @@ class MongoExtended extends MongoDB implements IConnectable
 	{
 		try {
 			self::bindParams($filter);
-			$st = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
+			$sth = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
 			if(!empty($aggregate)) {
-				$st->aggregate($aggregate);
+				$sth->aggregate($aggregate);
 			}	
 			//ORDER BY
 			if(!empty($orderBy)) {
@@ -119,20 +119,20 @@ class MongoExtended extends MongoDB implements IConnectable
 						throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
 					}
 				}
-				$st->sort($orderBy);
+				$sth->sort($orderBy);
 			}
 			//LIMIT
-			if(!is_null($limit)) {
+			if($limit !== null) {
 				if(is_integer($limit)){
-					$st->limit($limit);
+					$sth->limit($limit);
 				} elseif(is_array($limit) && count($limit) === 2) {
-					$st->limit($limit[1])->skip($limit[0]);
+					$sth->limit($limit[1])->skip($limit[0]);
 				} else {
 					throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
 				}	
 			} 
 			
-			return array_key_exists('count', $options) ? $st->count() : self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			return array_key_exists('count', $options) ? $sth->count() : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -153,7 +153,7 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public function update(string $collection, $params, $where = null): bool
 	{
-		if (is_null($where)) {
+		if ($where === null) {
 			$where = [];
 		}
 
@@ -173,7 +173,7 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public function delete(string $collection, $where = null, array $params = null): bool
 	{
-		if (is_null($where)) {
+		if ($where === null) {
 			$where = [];
 		}
 
@@ -195,22 +195,22 @@ class MongoExtended extends MongoDB implements IConnectable
 			self::bindParams($inParams);
 			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($inParams)) . ');');
 			$command = new MongoCmd(['eval' => $jscode]);
-			$st = $this->getManager()->executeCommand($this->_dbName, $command);
+			$sth = $this->getManager()->executeCommand($this->_dbName, $command);
 
-			return self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			return self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public static function fetch($sth, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		switch ($fetchMode) {
 			case Connection::FETCH_ASSOC:
-				$st->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
+				$sth->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
 				break;
 			case Connection::FETCH_OBJ:
-				$st->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
+				$sth->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
 				break;	
 			//case Connection::FETCH_CLASS:
 				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
@@ -219,10 +219,10 @@ class MongoExtended extends MongoDB implements IConnectable
 				throw new MongoException\CommandException('Can\'t fetch. Only Object or Associative Array mode accepted');
 		}
 
-		return $st->toArray();
+		return $sth->toArray();
 	}
 
-	public static function bindParams(array &$params, &$st = null): bool
+	public static function bindParams(array &$params, &$sth = null): bool
 	{
 		foreach ($params as $key => &$value) {
 			$varType = is_bool($value) ? FILTER_VALIDATE_BOOLEAN : (is_int($value) ? FILTER_VALIDATE_INT : (is_float($value) ? FILTER_VALIDATE_FLOAT : FILTER_DEFAULT));
@@ -240,7 +240,7 @@ class MongoExtended extends MongoDB implements IConnectable
 				? new Regex(filter_var($value->getPattern(), $varType, $options))
 				: filter_var($value, $varType, $options);
 
-			if (is_null($value)) return false;
+			if ($value === null) return false;
 
 			if($key === '_id') {
 				$value = new ObjectID($value); 
