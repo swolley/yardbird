@@ -36,7 +36,8 @@ class MongoExtended extends MongoDB implements IConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		try {
-			parent::__construct(...self::composeConnectionParams($params, ['authSource' => 'admin']));
+			$connection_string = "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}";
+			parent::__construct(...[ $connection_string, ['authSource' => 'admin'] ]);
 			$this->listDatabases();
 			$this->_dbName = $params['dbName'];
 			$this->_debugMode = $debugMode;
@@ -48,21 +49,9 @@ class MongoExtended extends MongoDB implements IConnectable
 	public static function validateConnectionParams(array $params): array
 	{
 		//string $host, int $port, string $user, string $pass, string $dbName
-		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) {
-			throw new BadMethodCallException("host, user, password, dbName are required");
-		}
+		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) throw new BadMethodCallException("host, user, password, dbName are required");
 
 		return $params;
-	}
-
-	public static function composeConnectionParams(array $params, array $init_arr = []): array
-	{
-		$connection_string = "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}";
-
-		return [
-			$connection_string,
-			$init_arr
-		];
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -97,7 +86,6 @@ class MongoExtended extends MongoDB implements IConnectable
 		//FIXME also options needs to be binded
 		try {
 			$sth = $this->db->command($options);
-			
 			return self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -115,9 +103,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			//ORDER BY
 			if(!empty($orderBy)) {
 				foreach($orderBy as $value) {
-					if($value !== 1 && $value !== -1) {
-						throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
-					}
+					if($value !== 1 && $value !== -1) throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
 				}
 				$sth->sort($orderBy);
 			}
@@ -144,7 +130,6 @@ class MongoExtended extends MongoDB implements IConnectable
 		try {
 			self::bindParams($params);
 			$response = $this->{$this->_dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
-
 			return $response->getInsertedId()->__toString();
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -153,10 +138,7 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public function update(string $collection, $params, $where = null): bool
 	{
-		if ($where === null) {
-			$where = [];
-		}
-
+		$where = $where ?? [];
 		if (!is_array($where)) throw new UnexpectedValueException('$where param must be of type array');
 
 		$params = Utils::castToArray($params);
@@ -164,7 +146,6 @@ class MongoExtended extends MongoDB implements IConnectable
 			self::bindParams($params);
 			self::bindParams($where);
 			$response = $this->{$this->_dbName}->{$collection}->updateMany($where, ['$set' => $params], ['upsert' => FALSE]);
-			
 			return $response->getModifiedCount() > 0;
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -173,16 +154,12 @@ class MongoExtended extends MongoDB implements IConnectable
 
 	public function delete(string $collection, $where = null, array $params = null): bool
 	{
-		if ($where === null) {
-			$where = [];
-		}
-
+		$where = $where ?? [];
 		if (!is_array($where)) throw new UnexpectedValueException('$where param must be of type array');
 
 		try {
 			self::bindParams($where);
 			$response = $this->{$this->_dbName}->{$collection}->deleteMany($where);
-			
 			return $response->getDeletedCount() > 0;
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -196,7 +173,6 @@ class MongoExtended extends MongoDB implements IConnectable
 			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($inParams)) . ');');
 			$command = new MongoCmd(['eval' => $jscode]);
 			$sth = $this->getManager()->executeCommand($this->_dbName, $command);
-
 			return self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
@@ -236,9 +212,7 @@ class MongoExtended extends MongoDB implements IConnectable
 				$options['flags'] = FILTER_NULL_ON_FAILURE;
 			}
 			
-			$value = $value instanceof Regex 
-				? new Regex(filter_var($value->getPattern(), $varType, $options))
-				: filter_var($value, $varType, $options);
+			$value = $value instanceof Regex ? new Regex(filter_var($value->getPattern(), $varType, $options)) : filter_var($value, $varType, $options);
 
 			if ($value === null) return false;
 

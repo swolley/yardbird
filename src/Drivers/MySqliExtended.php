@@ -25,7 +25,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		try {
-			parent::__construct(...self::composeConnectionParams($params));
+			parent::__construct(...[ $params['host'], $params['user'], $params['password'], $params['dbName'], $params['port'] ]);
 			$this->set_charset($params['charset']);
 			$this->_debugMode = $debugMode;
 		} catch(\Throwable $e) {
@@ -59,17 +59,6 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		}
 
 		return $params;
-	}
-
-	public static function composeConnectionParams(array $params, array $init_arr = []): array
-	{
-		return [
-			$params['host'], 
-			$params['user'], 
-			$params['password'], 
-			$params['dbName'], 
-			$params['port']
-		];
 	}
 
 	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
@@ -196,9 +185,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		$outResult = [];
 		self::bindOutParams($outParams, $sth, $outResult);
 		
-		return count($outParams) > 0 
-			? $outResult 
-			: self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		return count($outParams) > 0 ? $outResult : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 	}
 
 	public static function fetch($sth, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array

@@ -26,7 +26,13 @@ class OCIExtended implements IRelationalConnectable
 	{
 		$params = self::validateConnectionParams($params);
 		try {
-			$this->_db = oci_connect(...self::composeConnectionParams($params));
+			$connect_data_name = isset($params['sid']) ? 'sid' : (isset($params['serviceName']) ? 'serviceName' : null);
+			if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
+
+			$connect_data_value = $params[$connect_data_name];
+			$connection_string = preg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
+
+			$this->_db = oci_connect(...[ $params['user'], $params['password'], $connection_string ]);
 			//$this->_debugMode = $debugMode;
 			oci_internal_debug($debugMode);
 		} catch(\Throwable $e) {
@@ -59,34 +65,6 @@ class OCIExtended implements IRelationalConnectable
 		}
 
 		return $params;
-	}
-
-	public static function composeConnectionParams(array $params, array $init_array = []): array
-	{
-		$connect_data_name = isset($params['sid']) ? 'sid' : (isset($params['serviceName']) ? 'serviceName' : null);
-
-		if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
-
-		$connect_data_value = $params[$connect_data_name];
-		$connection_string = preg_replace(
-			"/\n|\r|\n\r|\t/",
-			'',
-			"
-			(DESCRIPTION = 
-				(ADDRESS_LIST = 
-					(ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))
-				)
-				(CONNECT_DATA = 
-					(" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")
-				)
-			)"
-		);
-
-		return [
-			$params['user'], 
-			$params['password'],
-			$connection_string
-		];
 	}
 
 	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
@@ -122,7 +100,7 @@ class OCIExtended implements IRelationalConnectable
 		$stringed_limit = QueryBuilder::limitToSql($limit);
 		$sth = oci_parse($this->_db, "SELECT {$stringed_fields} FROM {$table} {$stringed_joins} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
 
-		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		if (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);

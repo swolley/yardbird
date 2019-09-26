@@ -12,14 +12,6 @@ interface IConnectable
 	static function validateConnectionParams(array $params): array;
 
 	/**
-	 * @param	array	$params	connection parameters
-	 * @return	array	parsed and aggregated connection's params
-	 * @throws	\BadMethodCallException		if missing parameters
-	 * @throws	\UnexpectedValueException	if wrong values in parameters
-	 */
-	static function composeConnectionParams(array $params, array $init_Array = []): array;
-
-	/**
 	 * execute inline or complex queries query
 	 * @param 	string  		$query          			query text with placeholders
 	 * @param 	array|object  	$params         			assoc array with placeholder's name and relative values

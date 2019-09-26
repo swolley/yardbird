@@ -25,9 +25,7 @@ final class Connection
 	 */
 	public function __invoke(array $connectionParameters, bool $debugMode = false): IConnectable
 	{
-		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) {
-			throw new BadMethodCallException("Connection parameters are required");
-		}
+		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) throw new BadMethodCallException("Connection parameters are required");
 
 		switch (self::checkExtension($connectionParameters['driver'])) {
 			case 'mongodb':
@@ -49,9 +47,7 @@ final class Connection
 	 */
 	private static function checkExtension(string $driver): ?string
 	{
-		if (empty($driver)) {
-			throw new BadMethodCallException('No driver specified');
-		}
+		if (empty($driver)) throw new BadMethodCallException('No driver specified');
 
 		switch ($driver) {
 			case 'mongo':
@@ -75,8 +71,8 @@ final class Connection
 				return extension_loaded('pdo') ? 'pdo' : ($driver === 'mysql' && extension_loaded('mysqli') ? 'mysqli' : null);
 			case 'mysqli': 
 				return extension_loaded('mysqli') ? 'mysqli' : null;
-			default:
-				return null;
 		}
+
+		return null;
 	}
 }

@@ -27,9 +27,9 @@ class QueryBuilder
 			return self::sqlUpdateToMongo($query, $params);
 		} elseif (preg_match('/^call|exec|begin/i', $query) === 1) {
 			return self::sqlProcedureToMongo($query, $params);
-		} else {
-			throw new UnexpectedValueException('queryBuilder is unable to detect the query type');
 		}
+			
+		throw new UnexpectedValueException('queryBuilder is unable to detect the query type');
 	}
 
 	/**
@@ -45,9 +45,8 @@ class QueryBuilder
 		$ignore = false;
 
 		$query = preg_split('/^(insert) (ignore\s)?(into) (`?\w+`?)\s?\((.*)\) (values)\s?\((.*)\)$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-		if (empty($query)) {
-			throw new UnexpectedValueException('unable to parse query, check syntax');
-		}
+		if (empty($query)) throw new UnexpectedValueException('unable to parse query, check syntax');
+
 		//removes insert
 		array_shift($query);
 		if (count($query) > 0 && preg_match('/ignore/i', $query[0]) === 1) {
@@ -55,41 +54,26 @@ class QueryBuilder
 			array_shift($query);
 		}
 
-		if (count($query) === 0 || preg_match('/into/i', $query[0]) === 0) {
-			throw new UnexpectedValueException('unable to parse query, check syntax');
-		}
-		array_shift($query);
+		if (count($query) === 0 || preg_match('/into/i', $query[0]) === 0) throw new UnexpectedValueException('unable to parse query, check syntax');
 
+		array_shift($query);
 		//set table name
 		$table = preg_replace('/`|\s/', '', array_shift($query));
-		if (preg_match('/^values/i', $query[0]) === 1) {
-			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
-		}
+		if (preg_match('/^values/i', $query[0]) === 1) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', array_shift($query));
-		$keys_list = array_map(function ($key) {
-			return preg_replace('/`|\s/', '', $key);
-		}, $keys_list);
-		if (count($keys_list) === 0) {
-			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
-		}
+		$keys_list = array_map(function ($key) { return preg_replace('/`|\s/', '', $key); }, $keys_list);
+		if (count($keys_list) === 0) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 
 		//list of columns'values
-		if (preg_match('/^values/i', array_shift($query)) === 0) {
-			throw new UnexpectedValueException('columns list must be followed by VALUES keyword');
-		}
+		if (preg_match('/^values/i', array_shift($query)) === 0) throw new UnexpectedValueException('columns list must be followed by VALUES keyword');
+		
 		$values_list = preg_split('/,\s?/', array_shift($query));
-		$values_list = array_map(function ($value) {
-			return self::castValue($value);
-		}, $values_list);
-		if (count($values_list) === 0) {
-			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' values');
-		}
+		$values_list = array_map(function ($value) { return self::castValue($value); }, $values_list);
+		if (count($values_list) === 0) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' values');
 
-		if (count($keys_list) !== count($values_list)) {
-			throw new BadMethodCallException('Columns count must match values count');
-		}
+		if (count($keys_list) !== count($values_list)) throw new BadMethodCallException('Columns count must match values count');
 
 		//substitute params in array of values
 		foreach ($params as $key => $value) {
@@ -122,20 +106,17 @@ class QueryBuilder
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
 		$query = preg_split('/^(delete from) (`?\w+`?)\s?|(?:(where) (.*))$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-		if (empty($query)) {
-			throw new UnexpectedValueException('unable to parse query, check syntax');
-		}
+		if (empty($query)) throw new UnexpectedValueException('unable to parse query, check syntax');
+
 		array_shift($query);
 		//TABLE
 		$table = preg_replace('/`|\s/', '', array_shift($query));
 
 		//WHERE
+		$final_nested = [];
 		if (count($query) > 0 && preg_match('/where/i', $query[0]) === 1) {
 			array_shift($query);
-
-			if(count($query) === 0) {
-				throw new UnexpectedValueException('WHERE keyword must be followed by clauses');
-			}
+			if(count($query) === 0) throw new UnexpectedValueException('WHERE keyword must be followed by clauses');
 
 			$query = self::splitsOnParenthesis($query);
 			//parse and nest parameters
@@ -144,8 +125,6 @@ class QueryBuilder
 			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
-		} else {
-			$final_nested = [];
 		}
 
 		//query elements ready to be passed to driver function
@@ -167,24 +146,18 @@ class QueryBuilder
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
 		$query = preg_split('/^(update) (`?\w+`?) (set) (.*)\s?|(?:(where) (.*))$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-		if (empty($query)) {
-			throw new UnexpectedValueException('unable to parse query, check syntax');
-		}
+		if (empty($query)) throw new UnexpectedValueException('unable to parse query, check syntax');
 		array_shift($query);
 
 		//TABLE
 		$table = preg_replace('/`|\s/', '', array_shift($query));
 		//removes SET keyword
-		if(preg_match('/set/i', $query[0]) === 0) {
-			throw new UnexpectedValueException('Missing keywor SET');
-		}
+		if(preg_match('/set/i', $query[0]) === 0) throw new UnexpectedValueException('Missing keywor SET');
 		array_shift($query);
 
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', array_shift($query));
-		if (count($keys_list) === 0) {
-			throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
-		}
+		if (count($keys_list) === 0) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 
 		$parsed_params = [];
 		foreach ($keys_list as $value) {
@@ -195,6 +168,7 @@ class QueryBuilder
 		unset($keys_list);
 
 		//checks for where clauses
+		$final_nested = [];
 		if (count($query) > 0 && preg_match('/^where/i', $query[0]) === 1) {
 			array_shift($query);
 			//splits on parentheses
@@ -205,8 +179,6 @@ class QueryBuilder
 			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
-		} else {
-			$final_nested = [];
 		}
 
 		//query elements ready to be passed to driver function
@@ -226,19 +198,15 @@ class QueryBuilder
 	 */
 	public function sqlSelectToMongo(string $query, array $params = []): object
 	{
-		/*
-		TODO not handled yet
-		SELECT COUNT(*y) FROM users	$db->users->count();
-		SELECT COUNT(*y) FROM users where AGE > 30	$db->users->find(array("age" => array('$gt' => 30)))->count();
-		SELECT COUNT(AGE) from users	$db->users->find(array("age" => array('$exists' => true)))->count();
-		*/
+		// TODO not handled yet
+		// SELECT COUNT(*y) FROM users	$db->users->count();
+		// SELECT COUNT(*y) FROM users where AGE > 30	$db->users->find(array("age" => array('$gt' => 30)))->count();
+		// SELECT COUNT(AGE) from users	$db->users->find(array("age" => array('$exists' => true)))->count();
 
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
 		$query = preg_split('/^(select) (distinct)?\s?|(from) |((?:left*|inner) join) |(where) |(order by) |(limit) /i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-		if (empty($query)) {
-			throw new UnexpectedValueException('unable to parse query, check syntax');
-		}
+		if (empty($query)) throw new UnexpectedValueException('unable to parse query, check syntax');
 		//removes select
 		array_shift($query);
 		
@@ -265,7 +233,6 @@ class QueryBuilder
 				$rename_aliases[$splitted[0]] = $splitted[1];
 			}
 		};
-		//reset($projection);
 		if (count($projection) === 1 && key($projection) === '*') {
 			$projection = [];
 		} elseif(!$is_unique_id) {
@@ -274,21 +241,16 @@ class QueryBuilder
 		unset($columns_list);
 
 		//FROM
-		if (preg_match('/from/i', $query[0]) === 0) {
-			throw new UnexpectedValueException("select query require FROM keyword after columns list");
-		} else {
-			array_shift($query);
-		}
-
+		if (preg_match('/from/i', $query[0]) === 0) throw new UnexpectedValueException("select query require FROM keyword after columns list");
+		
+		array_shift($query);
 		//TABLE
 		$table = preg_replace('/`|\s/', '', array_shift($query));
 
 		//JOINS
 		$aggregate = [];
 		while(count($query) > 0 && preg_match('/join/i', $query[0]) === 1) {
-			if(preg_match('/inner/i', $query[0]) === 1) {
-				throw new UnexpectedValueException('MongoDB can only handles left joins');
-			}
+			if(preg_match('/inner/i', $query[0]) === 1) throw new UnexpectedValueException('MongoDB can only handles left joins');
 
 			array_shift($query);
 			list($joined_table, $left_field, $right_field) = preg_split('/(\w+) on ((?:\w+.)?\w+)\s?(?:=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))\s?((?:\w+.)?\w+)\s?/i', array_shift($query), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
@@ -303,6 +265,7 @@ class QueryBuilder
 		}
 		
 		//WHERE
+		$final_nested = [];
 		if (count($query) > 0 && preg_match('/where/i', $query[0]) === 1) {
 			array_shift($query);
 			$query = self::splitsOnParenthesis($query);
@@ -312,8 +275,6 @@ class QueryBuilder
 			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
-		} else {
-			$final_nested = [];
 		}
 
 		//ORDER BY
@@ -370,9 +331,8 @@ class QueryBuilder
 		$query = preg_match('/^call|begin/i', $query) === 1
 			? preg_split('/^(call|begin)\s(\w+)\s?\((.*)\)(?:;\s?end)?/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY)
 			: preg_split('/^(exec) (\w+)(?:\s(.*))?/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-		if (empty($query)) {
-			throw new UnexpectedValueException('unable to parse query, check syntax');
-		}
+		if (empty($query)) throw new UnexpectedValueException('unable to parse query, check syntax');
+
 		array_shift($query);
 		//PROCEDURE NAME
 		$procedure = preg_replace('/`|\s/', '', array_shift($query));
@@ -542,9 +502,9 @@ class QueryBuilder
 			return $value + 0;
 		} elseif (is_bool($value)) {
 			return (bool)$value;
-		} else {
-			return $value;
 		}
+		
+		return $value;
 	}
 
 	/**
@@ -568,22 +528,16 @@ class QueryBuilder
 	public static function colonsToQuestionMarksPlaceholders(string &$query, array &$params): void
 	{
 		$total_params = count($params);
-		$total_questionmark_placeholders = substr_count($query, '?');
+		$tot_question_placeholders = substr_count($query, '?');
 		$colon_placeholders = [];
 		preg_match_all('/(:\w+)/i', $query, $colon_placeholders);
 		$colon_placeholders = array_shift($colon_placeholders);
 		$tot_col_placeholders = count($colon_placeholders);
-
-		if ($tot_col_placeholders > 0 && $total_questionmark_placeholders > 0) {
-			throw new UnexpectedValueException('Possible incongruence in query placeholders');
-		}
-
-		if (($tot_col_placeholders === 0 && $total_questionmark_placeholders !== $total_params) || ($total_questionmark_placeholders === 0 && $tot_col_placeholders !== $total_params)) {
-			throw new BadMethodCallException('Number of params and placeholders must be the same');
-		}
+		if ($tot_col_placeholders > 0 && $tot_question_placeholders > 0) throw new UnexpectedValueException('Possible incongruence in query placeholders');
+		if (($tot_col_placeholders === 0 && $tot_question_placeholders !== $total_params) || ($tot_question_placeholders === 0 && $tot_col_placeholders !== $total_params)) throw new BadMethodCallException('Number of params and placeholders must be the same');
 
 		//changes colon placeholders found they are switched to question marks because of mysqli bind restruction
-		if ($total_questionmark_placeholders === 0) {
+		if ($tot_question_placeholders === 0) {
 			$reordered_params = [];
 			foreach ($colon_placeholders as $param) {
 				$trimmed = ltrim($param, ':');
@@ -646,9 +600,7 @@ class QueryBuilder
 	{
 		$stringed_joins = '';
 		foreach($join as $joined_table => $join_options) {
-			if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) {
-				throw new BadMethodCallException('Malformed join array');
-			}
+			if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) throw new BadMethodCallException('Malformed join array');
 
 			$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
 				. ' ON ' 
