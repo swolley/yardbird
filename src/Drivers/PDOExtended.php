@@ -177,7 +177,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 					$sth = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `{$table}` ({$keys}) VALUES ({$values})");
 					break;
 				case 'oci':
-					$sth = $this->prepare("BEGIN INSERT INTO `{$table}` ({$keys}) VALUES ({$values}); " . ($ignore ? "EXCEPTION WHEN dup_val_on_index THEN null; " : '') . "END;");
+					$sth = $this->prepare("BEGIN INSERT INTO `{$table}` ({$keys}) VALUES ({$values})" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END;');
 					break;
 			}
 

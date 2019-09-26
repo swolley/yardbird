@@ -98,24 +98,6 @@ final class PDOExtendedTest extends TestCase
 		$this->assertEquals($expected, $result);
 	}
 
-	public function test_composeConnectionParams_should_return_array(): void
-	{
-		$params = ['driver' => 'driver', 'host' => 'host', 'port' => 'port', 'dbName' => 'dbName', 'charset' => 'charset', 'user' => 'username', 'password' => 'userpassword'];
-		$expected = [
-			"driver:host=host;port=port;dbname=dbName;charset=charset",
-			'username',
-			'userpassword'
-		];
-
-		$reflection = new \ReflectionClass(PDOExtended::class);
-		$method = $reflection->getMethod('composeConnectionParams');
-		$method->setAccessible(true);
-
-		$result = $method->invokeArgs($reflection, [$params]);
-
-		$this->assertEquals($expected, $result);
-	}
-
 	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
 	{
 		$this->expectException(ConnectionException::class);

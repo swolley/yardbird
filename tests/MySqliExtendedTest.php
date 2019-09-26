@@ -37,26 +37,6 @@ final class MySqliExtendedTest extends TestCase
 		]);
 	}
 
-	public function test_composeConnectionParams_should_return_array(): void
-	{
-		$params = ['host' => 'hostvalue', 'port' => 'portvalue', 'dbName' => 'dbNamevalue', 'user' => 'username', 'password' => 'userpassword'];
-		$expected = [
-			'hostvalue',
-			'username',
-			'userpassword',
-			'dbNamevalue',
-			'portvalue'
-		];
-
-		$reflection = new \ReflectionClass(MySqliExtended::class);
-		$method = $reflection->getMethod('composeConnectionParams');
-		$method->setAccessible(true);
-
-		$result = $method->invokeArgs($reflection, [$params]);
-
-		$this->assertEquals($expected, $result);
-	}
-
 	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
 	{
 		$this->expectException(ConnectionException::class);

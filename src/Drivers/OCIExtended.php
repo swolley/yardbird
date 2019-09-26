@@ -117,7 +117,7 @@ class OCIExtended implements IRelationalConnectable
 		$params = Utils::castToArray($params);
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
-		$sth = oci_parse($this->_db, "BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values}); EXCEPTION WHEN dup_val_on_index THEN null; END; RETURNING RowId INTO :last_inserted_id");
+		$sth = oci_parse($this->_db, "BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values})" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END; RETURNING RowId INTO :last_inserted_id');
 		
 		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		$inserted_id = null;

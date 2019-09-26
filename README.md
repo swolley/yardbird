@@ -1,11 +1,11 @@
 <img src="images/yardbird-icon-64x64.png" align="right"/>
 
-# yardBird
-**yardBird** is a wrapper for multiple types of databases (currently supported are all PDO drivers, Mysqli, OCI8, MongoDB). The library exposes common methods for crud functions and a parser class to translate sql queries to mongodb library syntax.
+# yarDBird
+**yarDBird** is a wrapper for multiple types of databases (currently supported are all PDO drivers, Mysqli, OCI8, MongoDB). The library exposes common methods for crud functions and a parser class to translate sql queries to mongodb library syntax.
 The project is still in progress and not totally tested.
 
 ## requirements
-**yardBird** requires php mongodb driver and mongodb/mongodb library if you want to connect to MongoDB.
+**yarDBird** requires php mongodb driver and mongodb/mongodb library if you want to connect to MongoDB.
 * pecl install mongodb
 * composer install mongodb/mongodb
 

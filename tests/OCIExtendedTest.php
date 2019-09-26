@@ -49,24 +49,6 @@ final class OCIExtendedTest extends TestCase
 		$method->invokeArgs($reflection, [$params]);
 	}
 
-	public function test_composeConnectionParams_should_return_array(): void
-	{
-		$params = ['host' => 'hostvalue', 'port' => 'portvalue', 'sid' => 'sidvalue', 'user' => 'username', 'password' => 'userpassword'];
-		$expected = [
-			'username',
-			'userpassword',
-			"(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = hostvalue)(PORT = portvalue)))(CONNECT_DATA = (SID = sidvalue)))"
-		];
-
-		$reflection = new \ReflectionClass(OCIExtended::class);
-		$method = $reflection->getMethod('composeConnectionParams');
-		$method->setAccessible(true);
-
-		$result = $method->invokeArgs($reflection, [$params]);
-
-		$this->assertEquals($expected, $result);
-	}
-
 	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
 	{
 		$this->expectException(ConnectionException::class);

@@ -3,7 +3,7 @@
 	"description": "A wrapper for multiple types of databases",
     "type": "library",
     "scripts": {
-        "test": "SHELL_INTERACTIVE=1 phpunit --bootstrap vendor/autoload.php --colors=always --stop-on-failure ./tests/"
+        "test": "SHELL_INTERACTIVE=1 phpunit --bootstrap vendor/autoload.php --colors=always --stop-on-failure --coverage-xml ./codecoverage ./tests/"
     },
     "suggest": {
 		"ext-mongo": "php mongo extension",
@@ -22,6 +22,7 @@
         }
     },
     "require-dev": {
-        "phpunit/phpunit": "^8"
+		"phpunit/phpunit": "^8",
+		"codacy/coverage": "dev-master"
     }
 }

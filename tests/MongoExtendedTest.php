@@ -36,23 +36,6 @@ final class MongoExtendedTest extends TestCase
 		new MongoExtended([]);
 	}
 
-	public function test_composeConnectionParams_should_return_array(): void
-	{
-		$params = ['host' => 'host', 'port' => 'port', 'dbName' => 'dbName', 'charset' => 'charset', 'user' => 'username', 'password' => 'userpassword'];
-		$expected = [
-			"mongodb://username:userpassword@host:port",
-			[ 'authSource' => 'admin' ]
-		];
-
-		$reflection = new \ReflectionClass(MongoExtended::class);
-		$method = $reflection->getMethod('composeConnectionParams');
-		$method->setAccessible(true);
-
-		$result = $method->invokeArgs($reflection, [$params, [ 'authSource' => 'admin' ]]);
-
-		$this->assertEquals($expected, $result);
-	}
-
 	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
 	{
 		$this->expectException(ConnectionException::class);
