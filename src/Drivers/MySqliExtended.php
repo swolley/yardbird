@@ -175,7 +175,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 	{
 		//input params
 		$procedure_in_params = '';
-		foreach ($inParams as $key => $value) {
+		foreach ($inParams as $value) {
 			$procedure_in_params .= "?, ";
 		}
 		$procedure_in_params = rtrim($procedure_in_params, ', ');
@@ -232,12 +232,12 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 
 	public static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void
 	{
-		if (gettype($params) === 'array' && gettype($outResult) === 'array') {
+		if (is_array($params) && is_array($outResult)) {
 			foreach ($params as $value) {
 				$outResult[$value] = null;
 			}
 			$sth->bind_result(...$outResult);
-		} elseif (gettype($params) === 'string') {
+		} elseif (is_string($params)) {
 			$outResult = null;
 			$sth->bind_result($outResult);
 		} else {

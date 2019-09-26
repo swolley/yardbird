@@ -57,7 +57,7 @@ final class MongoExtendedTest extends TestCase
 	{
 		$this->expectException(ConnectionException::class);
 		$params = ['host' => 'localhost', 'port' => 3306, 'dbName' => 'invalid', 'charset' => 'UTF8', 'user' => 'invalid', 'password' => 'invalid'];
-		$connection = new MongoExtended($params);
+		new MongoExtended($params);
 	}
 	
 }

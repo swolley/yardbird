@@ -70,13 +70,13 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 
 		/////////////////////////////////////////////////////////////
-		if ($params['driver'] !== 'oci' && !isset($params['dbName'])) {
-			throw new BadMethodCallException("dbName is required");
-		} elseif ($params['driver'] !== 'oci' && empty($params['dbName'])) {
-			throw new UnexpectedValueException("dbName can't be empty");
-		}
-
-		if ($params['driver'] === 'oci' && (!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
+		if ($params['driver'] !== 'oci') {
+			if (!isset($params['dbName'])) {
+				throw new BadMethodCallException("dbName is required");
+			} elseif (empty($params['dbName'])) {
+				throw new UnexpectedValueException("dbName can't be empty");
+			}
+		} elseif ((!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
 			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
 
@@ -224,7 +224,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	public function update(string $table, $params, $where = null): bool
 	{
 		$params = Utils::castToArray($params);
-		if ($where !== null && gettype($where) !== 'string') {
+		if ($where !== null && !is_string($where)) {
 			throw new UnexpectedValueException('$where param must be of type string');
 		} elseif ($where !== null) {
 			if ($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
@@ -259,7 +259,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	 */
 	public function delete(string $table, $where = null, array $params = null): bool
 	{
-		if ($where !== null && gettype($where) !== 'string') {
+		if ($where !== null && !is_string($where)) {
 			throw new UnexpectedValueException('$where param must be of type string');
 		} elseif ($where !== null) {
 			if ($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
@@ -297,7 +297,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		try {
 			//input params
 			$procedure_in_params = '';
-			foreach ($inParams as $key => $value) {
+			foreach (array_keys($inParams) as $key) {
 				$procedure_in_params .= ":$key, ";
 			}
 			$procedure_in_params = rtrim($procedure_in_params, ', ');
@@ -306,7 +306,26 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				return $total .= ":$value, ";
 			}, ''), ', ');
 
-			$sth = $this->prepare($this->constructProcedureString($name, $procedure_in_params, $procedure_out_params));
+			$parameters_string = $procedure_in_params . (strlen($procedure_in_params) > 0 && strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
+			$procedure_string = null;
+			switch ($this->getAttribute(self::ATTR_DRIVER_NAME)) {
+				case 'pgsql':
+				case 'mysql':
+					$procedure_string = "CALL ###name###(###params###);";
+					break;
+				case 'mssql':
+					$procedure_string = "EXEC ###name### ###params###;";
+					break;
+				case 'oci':
+					$procedure_string = "BEGIN ###name### (###params###); END;";
+					break;
+				default:
+					$procedure_string = null;
+			}
+
+			if ($procedure_string === null) throw new \Exception('Requested driver still not supported');
+
+			$sth = $this->prepare(str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string));
 
 			if (!self::bindParams($inParams, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 
@@ -326,6 +345,24 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	public function showTables(): array
 	{
 		$driver = $this->getAttribute(self::ATTR_DRIVER_NAME);
+		$query = null;
+		switch ($driver) {
+			case 'mysql':
+				$query = 'SHOW TABLES';
+				break;
+			case 'oci':
+				$query = "SELECT * FROM tab WHERE  TNAME NOT LIKE 'BIN$%'";
+				break;
+			case 'mssql':
+				$query = 'SELECT Distinct TABLE_NAME FROM information_schema.TABLES';
+				break;
+			case 'pgsql':
+				$query = "SELECT * FROM pg_catalog.pg_tables WHERE table_schema = 'public'";
+				break;
+		}
+
+		if ($query === null) throw new \Exception('Requested driver still not supported');
+
 		return array_map(function ($table) use ($driver) {
 			switch($driver) {
 				case 'mysql':
@@ -335,22 +372,33 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 				default:
 					throw new \Exception('Requested driver still not supported');
 			}
-		}, $this->sql($this->constructShowTableString($driver)));
+		}, $this->sql($query));
 	}
 
 	public function showColumns($tables): array
 	{
-		$type = gettype($tables);
-		if ($type === 'string') {
+		if (is_string($tables)) {
 			$tables = [$tables];
-		} elseif ($type !== 'array') {
+		} elseif (!is_array($tables)) {
 			throw new UnexpectedValueException('Table name must be string or array of strings');
 		}
 
 		$driver = $this->getAttribute(self::ATTR_DRIVER_NAME);
+		$query = null;
+		switch ($driver) {
+			case 'mysql':
+				$query = "SHOW COLUMNS FROM ###name###";
+				break;
+			case 'oci':
+				$query = "SELECT * FROM user_tab_cols WHERE table_name = '###name###'";
+				break;
+		}
+
+		if ($query === null) throw new \Exception('Requested driver still not supported');
+
 		$columns = [];
 		foreach ($tables as $table) {
-			$cur = $this->sql($this->constructShowColumnsString($driver, $table));
+			$cur = $this->sql(str_replace('###name###', $table, $query));
 			$columns[$table] = array_map(function ($column) use($driver) {
 				$column_name = null;
 				$column_data = null;
@@ -410,12 +458,12 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 	public static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void
 	{
-		if (gettype($params) === 'array' && gettype($outResult) === 'array') {
+		if (is_array($params) && is_array($outResult)) {
 			foreach ($params as $value) {
 				$outResult[$value] = null;
 				$sth->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
 			}
-		} elseif (gettype($params) === 'string') {
+		} elseif (is_string($params)) {
 			$outResult = null;
 			$sth->bindParam(":$value", $outResult[$value], self::PARAM_STR | self::PARAM_INPUT_OUTPUT, $maxLength);
 		} else {
@@ -459,81 +507,5 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		);
 
 		return "oci:dbname={$tns};charset={$params['charset']}";
-	}
-
-	/**
-	 * @param	string	$name	procedure name
-	 * @param	string	$in		stringed input parameters
-	 * @param	string	$out	stringed output parameters
-	 * @return	string	composed procedure query string
-	 * @throws	\Exception	driver still not supported
-	 */
-	protected function constructProcedureString(string $name, string $in = '', string $out = ''): string
-	{
-		$parameters_string = $in . (strlen($in) > 0 && strlen($out) > 0 ? ', ' : '') . $out;
-		$procedure_string = null;
-		switch ($this->getAttribute(self::ATTR_DRIVER_NAME)) {
-			case 'pgsql':
-			case 'mysql':
-				$procedure_string = "CALL ###name###(###params###);";
-				break;
-			case 'mssql':
-				$procedure_string = "EXEC ###name### ###params###;";
-				break;
-			case 'oci':
-				$procedure_string = "BEGIN ###name### (###params###); END;";
-				break;
-			default:
-				$procedure_string = null;
-		}
-
-		if ($procedure_string === null) throw new \Exception('Requested driver still not supported');
-
-		return str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string);
-	}
-
-	/**
-	 * @param	string	$driver	driver name
-	 * @return	string	driver correct query string
-	 * @throws	\Exception	driver still not supported
-	 */
-	protected function constructShowTableString(string $driver): string
-	{
-		$query = null;
-		switch ($driver) {
-			case 'mysql':
-				$query = 'SHOW TABLES';
-				break;
-			case 'oci':
-				$query = "SELECT * FROM tab WHERE  TNAME NOT LIKE 'BIN$%'";
-				break;
-			case 'mssql':
-				$query = 'SELECT Distinct TABLE_NAME FROM information_schema.TABLES';
-				break;
-			case 'pgsql':
-				$query = "SELECT * FROM pg_catalog.pg_tables WHERE table_schema = 'public'";
-				break;
-		}
-
-		if ($query === null) throw new \Exception('Requested driver still not supported');
-
-		return $query;
-	}
-
-	protected function constructShowColumnsString(string $driver, string $tableName): string
-	{
-		$query = null;
-		switch ($driver) {
-			case 'mysql':
-				$query = "SHOW COLUMNS FROM $tableName";
-				break;
-			case 'oci':
-				$query = "SELECT * FROM user_tab_cols WHERE table_name = '$tableName'";
-				break;
-		}
-
-		if ($query === null) throw new \Exception('Requested driver still not supported');
-
-		return $query;
 	}
 }

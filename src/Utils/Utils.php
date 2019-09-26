@@ -13,12 +13,12 @@ class Utils
 	 */
 	public static function castToArray($params): array
 	{
-		$paramsType = gettype($params);
-		if ($paramsType !== 'array' && $paramsType !== 'object') {
+		$is_object = is_object($params);
+		if (!is_array($params) && !$is_object) {
 			throw new UnexpectedValueException('$params can be only array or object');
 		}
 
-		return $paramsType === 'object' ? (array)$params : $params;
+		return $is_object ? (array)$params : $params;
 	}
 
 	/**
@@ -28,12 +28,12 @@ class Utils
 	 */
 	public static function castToObject($params): object
 	{
-		$paramsType = gettype($params);
-		if ($paramsType !== 'array' && $paramsType !== 'object') {
+		$is_array = is_array($params);
+		if (!$is_array && !is_object($params)) {
 			throw new UnexpectedValueException('$params can be only array or object');
 		}
 
-		return $paramsType === 'array' ? (object)$params : $params;
+		return $is_array ? (object)$params : $params;
 	}
 
 	/**

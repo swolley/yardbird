@@ -46,7 +46,7 @@ final class OCIExtendedTest extends TestCase
 		$method = $reflection->getMethod('composeConnectionParams');
 		$method->setAccessible(true);
 
-		$result = $method->invokeArgs($reflection, [$params]);
+		$method->invokeArgs($reflection, [$params]);
 	}
 
 	public function test_composeConnectionParams_should_return_array(): void
@@ -71,7 +71,7 @@ final class OCIExtendedTest extends TestCase
 	{
 		$this->expectException(ConnectionException::class);
 		$params = ['host' => 'localhost', 'port' => 3306, 'charset' => 'UTF8', 'user' => 'invalid', 'password' => 'invalid', 'sid' => 'invalid'];
-		$connection = new OCIExtended($params);
+		new OCIExtended($params);
 	}
 
 	/*public function test_sql_should_throw_exception_if_parameters_not_binded(): void

@@ -157,7 +157,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			$where = [];
 		}
 
-		if (gettype($where) !== 'array') throw new UnexpectedValueException('$where param must be of type array');
+		if (!is_array($where)) throw new UnexpectedValueException('$where param must be of type array');
 
 		$params = Utils::castToArray($params);
 		try {
@@ -177,7 +177,7 @@ class MongoExtended extends MongoDB implements IConnectable
 			$where = [];
 		}
 
-		if (gettype($where) !== 'array') throw new UnexpectedValueException('$where param must be of type array');
+		if (!is_array($where)) throw new UnexpectedValueException('$where param must be of type array');
 
 		try {
 			self::bindParams($where);

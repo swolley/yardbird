@@ -20,7 +20,7 @@ final class QueryBuilderTest extends TestCase
 	{
 		$queryBuilder = new QueryBuilder();
 		$query = $queryBuilder->sqlToMongo('SELECT id FROM table');
-		$this->assertEquals('object', gettype($query));
+		$this->assertTrue(is_object($query));
 		$this->assertEquals('select', $query->type);
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals([], $query->filter);
@@ -28,7 +28,7 @@ final class QueryBuilderTest extends TestCase
 		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('INSERT INTO table(a, b) VALUES(:a, :b)', ['a' => 1, 'b' => 2]);
-		$this->assertEquals('object', gettype($query));
+		$this->assertTrue(is_object($query));
 		$this->assertEquals('insert', $query->type);
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
@@ -36,7 +36,7 @@ final class QueryBuilderTest extends TestCase
 		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('UPDATE table SET a=:a, b=:b', ['a' => 1, 'b' => 2]);
-		$this->assertEquals('object', gettype($query));
+		$this->assertTrue(is_object($query));
 		$this->assertEquals('update', $query->type);
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
@@ -44,7 +44,7 @@ final class QueryBuilderTest extends TestCase
 		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('DELETE FROM table');
-		$this->assertEquals('object', gettype($query));
+		$this->assertTrue(is_object($query));
 		$this->assertEquals('delete', $query->type);
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals([], $query->params);
@@ -52,7 +52,7 @@ final class QueryBuilderTest extends TestCase
 		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('CALL procedure()');
-		$this->assertEquals('object', gettype($query));
+		$this->assertTrue(is_object($query));
 		$this->assertEquals('procedure', $query->type);
 		$this->assertEquals('procedure', $query->name);
 		$this->assertEquals([], $query->params);
@@ -183,18 +183,18 @@ final class QueryBuilderTest extends TestCase
 		$this->expectException(UnexpectedValueException::class);
 		$query = ["a!!b"];
 		$params = [];
-		$nested_level = $i = 0;
+		$nested_level = $idx = 0;
 
-		(new QueryBuilder)->parseOperators($query, $params, $i, $nested_level);
+		(new QueryBuilder)->parseOperators($query, $params, $idx, $nested_level);
 	}
 
 	public function test_parseOperators_should_return_array_if_parameters_are_correct(): void
 	{
 		$query = ["a=1", "b>'value'", 'id=:id'];
 		$params = ['id' => 1];
-		$nested_level = $i = 0;
-		$parsed = (new QueryBuilder)->parseOperators($query, $params, $i, $nested_level);
-		$this->assertEquals('array', gettype($parsed));
+		$nested_level = $idx = 0;
+		$parsed = (new QueryBuilder)->parseOperators($query, $params, $idx, $nested_level);
+		$this->assertTrue(is_array($parsed));
 	}
 
 	public function test_groupLogicalOperators_should_return_grouped_params_by_operators(): void

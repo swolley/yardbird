@@ -93,9 +93,9 @@ class QueryBuilder
 
 		//substitute params in array of values
 		foreach ($params as $key => $value) {
-			$index = array_search(':' . $key, $values_list);
-			if ($index !== false) {
-				$values_list[$index] = $value;
+			$idx = array_search(':' . $key, $values_list);
+			if ($idx !== false) {
+				$values_list[$idx] = $value;
 			}
 		}
 
@@ -139,9 +139,9 @@ class QueryBuilder
 
 			$query = self::splitsOnParenthesis($query);
 			//parse and nest parameters
-			$i = 0;
+			$idx = 0;
 			$nested_level = 0;
-			$where_params = $this->parseOperators($query, $params, $i, $nested_level);
+			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
 		} else {
@@ -200,9 +200,9 @@ class QueryBuilder
 			//splits on parentheses
 			$query = self::splitsOnParenthesis($query);
 			//parse and nest parameters
-			$i = 0;
+			$idx = 0;
 			$nested_level = 0;
-			$where_params = $this->parseOperators($query, $params, $i, $nested_level);
+			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
 		} else {
@@ -307,9 +307,9 @@ class QueryBuilder
 			array_shift($query);
 			$query = self::splitsOnParenthesis($query);
 			//parse and nest parameters
-			$i = 0;
+			$idx = 0;
 			$nested_level = 0;
-			$where_params = $this->parseOperators($query, $params, $i, $nested_level);
+			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
 		} else {
@@ -408,16 +408,16 @@ class QueryBuilder
 	 * converts operator to mongo syntax and creates nested hierarchy on parenthesis
 	 * @param	string	$query	query string
 	 * @param	array	$params	parameters
-	 * @param	integer	$i		index
+	 * @param	integer	$idx		index
 	 * @param	integer	$nested_level	level of nesting
 	 * @return	array	composed query
 	 */
-	public function parseOperators(array &$query, array &$params, int &$i, int &$nested_level): array
+	public function parseOperators(array &$query, array &$params, int &$idx, int &$nested_level): array
 	{
 		$where_params = [];
-		while ($i < count($query)) {
-			if (preg_match('/!?=|<=?|>=?/i', $query[$i]) === 1) {
-				$splitted = preg_split('/(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))/i', $query[$i], null, PREG_SPLIT_DELIM_CAPTURE);
+		while ($idx < count($query)) {
+			if (preg_match('/!?=|<=?|>=?/i', $query[$idx]) === 1) {
+				$splitted = preg_split('/(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))/i', $query[$idx], null, PREG_SPLIT_DELIM_CAPTURE);
 				switch ($splitted[1]) {
 					case '=':
 						$operator = '$eq';
@@ -447,8 +447,8 @@ class QueryBuilder
 				}
 
 				$where_params[] = [$splitted[0] => [$operator => $splitted[2]]];
-			} elseif (preg_match('/\slike\s/i', $query[$i]) === 1) {
-				$splitted = preg_split('/\slike\s/i', $query[$i]);
+			} elseif (preg_match('/\slike\s/i', $query[$idx]) === 1) {
+				$splitted = preg_split('/\slike\s/i', $query[$idx]);
 				if(substr($splitted[1], 0, 1) === ':' && isset($params[substr($splitted[1], 1)])) {
 					$splitted[1] = $params[substr($splitted[1], 1)];
 				}
@@ -457,20 +457,20 @@ class QueryBuilder
 				//last char
 				$splitted[1] = substr($splitted[1], -1) === '%' ? substr($splitted[1], 0, -1) . '$' : $splitted[1];
 				$where_params[] = [trim($splitted[0], '`') => new Regex($splitted[1], 'i')];
-			} elseif (preg_match('/and|&&|or|\|\|/i', $query[$i]) === 1) {
-				$where_params[] = $query[$i];
-			} elseif ($query[$i] === '(') {
-				$i++;
+			} elseif (preg_match('/and|&&|or|\|\|/i', $query[$idx]) === 1) {
+				$where_params[] = $query[$idx];
+			} elseif ($query[$idx] === '(') {
+				$idx++;
 				$nested_level++;
-				$where_params[] = $this->parseOperators($query, $params, $i, $nested_level);
-			} elseif ($query[$i] === ')') {
-				//$i++;
+				$where_params[] = $this->parseOperators($query, $params, $idx, $nested_level);
+			} elseif ($query[$idx] === ')') {
+				//$idx++;
 				$nested_level--;
 				break;
 			} else {
-				throw new UnexpectedValueException('Unexpected keyword ' . $query[$i]);
+				throw new UnexpectedValueException('Unexpected keyword ' . $query[$idx]);
 			}
-			$i++;
+			$idx++;
 		}
 
 		return $where_params;
@@ -487,14 +487,14 @@ class QueryBuilder
 		}
 
 		$nested_group = [];
-		$i = 1;
+		$idx = 1;
 		//start
 		if(!is_numeric(key($query))) {
 			$nested_group = array_merge($nested_group, $query);
 		} else {
 			do {
-				$cur = $query[$i];
-				$prev = $query[$i - 1];
+				$cur = $query[$idx];
+				$prev = $query[$idx - 1];
 
 				if (count($prev) === 1) {
 					//single value with operator
@@ -511,12 +511,12 @@ class QueryBuilder
 					$nested_group[$first_key] = array_merge($nested_group[$first_key], $new_array[$first_key]);
 				}
 
-				$i = $i + 2;
-			} while ($i <= count($query) - 1);
+				$idx = $idx + 2;
+			} while ($idx <= count($query) - 1);
 
 			//last sub array element
-			$i--;
-			$cur = $query[$i];
+			$idx--;
+			$cur = $query[$idx];
 			$new_array = count($cur) === 1 ? $cur : $this->groupLogicalOperators($cur);
 			$first_key = key($nested_group);
 			if (!isset($nested_group[$first_key])) {
@@ -573,13 +573,13 @@ class QueryBuilder
 		$colon_placeholders = [];
 		preg_match_all('/(:\w+)/i', $query, $colon_placeholders);
 		$colon_placeholders = array_shift($colon_placeholders);
-		$total_colon_placeholders = count($colon_placeholders);
+		$tot_col_placeholders = count($colon_placeholders);
 
-		if ($total_colon_placeholders > 0 && $total_questionmark_placeholders > 0) {
+		if ($tot_col_placeholders > 0 && $total_questionmark_placeholders > 0) {
 			throw new UnexpectedValueException('Possible incongruence in query placeholders');
 		}
 
-		if (($total_colon_placeholders === 0 && $total_questionmark_placeholders !== $total_params) || ($total_questionmark_placeholders === 0 && $total_colon_placeholders !== $total_params)) {
+		if (($tot_col_placeholders === 0 && $total_questionmark_placeholders !== $total_params) || ($total_questionmark_placeholders === 0 && $tot_col_placeholders !== $total_params)) {
 			throw new BadMethodCallException('Number of params and placeholders must be the same');
 		}
 
@@ -610,18 +610,18 @@ class QueryBuilder
 	{
 		//splits on parentheses
 		$query = preg_split('/(?<!like)\s(?!like)/i', $query[0]);
-		for ($i = 0; $i < count($query); $i++) {
-			if (strpos($query[$i], '(') !== false || strpos($query[$i], ')') !== false) {
-				$first_part = array_slice($query, 0, $i);
-				$second_part = array_slice($query, $i + 1);
-				if (substr($query[$i], 0, 1) === '(') {
+		for ($idx = 0; $idx < count($query); $idx++) {
+			if (strpos($query[$idx], '(') !== false || strpos($query[$idx], ')') !== false) {
+				$first_part = array_slice($query, 0, $idx);
+				$second_part = array_slice($query, $idx + 1);
+				if (substr($query[$idx], 0, 1) === '(') {
 					$first_part[] = '(';
-					$substr = substr($query[$i], 1);
+					$substr = substr($query[$idx], 1);
 					if ($substr !== ' ') {
 						$first_part[] = $substr;
 					}
-				} elseif (substr($query[$i], -1, 1) === ')') {
-					$substr = substr($query[$i], 0, -1);
+				} elseif (substr($query[$idx], -1, 1) === ')') {
+					$substr = substr($query[$idx], 0, -1);
 					if ($substr !== ' ') {
 						$first_part[] = $substr;
 					}
@@ -630,7 +630,7 @@ class QueryBuilder
 
 				$query = array_merge($first_part, $second_part);
 				if (substr(end($first_part), 0, 1) !== '(') {
-					$i++;
+					$idx++;
 				}
 			}
 		}
@@ -715,14 +715,14 @@ class QueryBuilder
 	/**
 	 * composes where portion of the query
 	 * @param	array	$where						where parameters
-	 * @param	boolean	$questionMarkPlaceholders	use question marks instead of named placeholders
+	 * @param	boolean	$questionPlaceholders	use question marks instead of named placeholders
 	 * @return	string	query portion
 	 */
-	public static function whereToSql($where, bool $questionMarkPlaceholders = false): string
+	public static function whereToSql($where, bool $questionPlaceholders = false): string
 	{
 		$stringed_where = '';
 		foreach ($where as $key => $value) {
-			$stringed_where .= "`$key`=" . ($questionMarkPlaceholders ? '?' : ":{$key}") . " AND ";
+			$stringed_where .= "`$key`=" . ($questionPlaceholders ? '?' : ":{$key}") . " AND ";
 		}
 		$stringed_where = rtrim($stringed_where, 'AND ');
 		if(!empty($stringed_where)) {
@@ -735,14 +735,14 @@ class QueryBuilder
 	/**
 	 * composes values list portion of the query
 	 * @param	array	$params						where parameters
-	 * @param	boolean	$questionMarkPlaceholders	use question marks instead of named placeholders
+	 * @param	boolean	$questionPlaceholders	use question marks instead of named placeholders
 	 * @return	string	query portion
 	 */
-	public static function valuesListToSql(array $params, bool $questionMarkPlaceholders = false): string
+	public static function valuesListToSql(array $params, bool $questionPlaceholders = false): string
 	{
 		$values = '';
 		foreach ($params as $key => $value) {
-			$values .= "`$key`=" . ($questionMarkPlaceholders ? '?' : ":{$key}") . ", ";
+			$values .= "`$key`=" . ($questionPlaceholders ? '?' : ":{$key}") . ", ";
 		}
 		$values = rtrim($values, ', ');
 

@@ -164,7 +164,7 @@ class OCIExtended implements IRelationalConnectable
 	{
 		$params = Utils::castToArray($params);
 		
-		if($where !== null && gettype($where) !== 'string') throw new UnexpectedValueException('$where param must be of type string');
+		if($where !== null && !is_string($where)) throw new UnexpectedValueException('$where param must be of type string');
 		//TODO how to bind where clause?
 		$values = QueryBuilder::valuesListToSql($params);
 		
@@ -183,7 +183,7 @@ class OCIExtended implements IRelationalConnectable
 
 	public function delete(string $table, $where = null, array $params = null): bool
 	{
-		if($where !== null && gettype($where) !== 'string') throw new UnexpectedValueException('$where param must be of type string');
+		if($where !== null && !is_string($where)) throw new UnexpectedValueException('$where param must be of type string');
 
 		$sth = oci_parse($this->_db, "DELETE FROM {$table}" . ($where !== null ? " WHERE {$where}" : ''));
 		
@@ -250,10 +250,9 @@ class OCIExtended implements IRelationalConnectable
 
 	public function showColumns($tables): array
 	{
-		$type = gettype($tables);
-		if ($type === 'string') {
+		if (is_string($tables)) {
 			$tables = [$tables];
-		} elseif ($type !== 'array') {
+		} elseif (!is_array($tables)) {
 			throw new UnexpectedValueException('Table name must be string or array of strings');
 		}
 
@@ -311,14 +310,14 @@ class OCIExtended implements IRelationalConnectable
 
 	public static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void
 	{
-		if (gettype($params) === 'array' && gettype($outResult) === 'array') {
+		if (is_array($params) && is_array($outResult)) {
 			foreach ($params as $value) {
 				$outResult[$value] = null;
 				if (!oci_bind_by_name($sth, ":$value", $outResult[$value], $maxLength)) {
 					throw new UnexpectedValueException('Cannot bind parameter value');
 				}
 			}
-		} elseif (gettype($params) === 'string') {
+		} elseif (is_string($params)) {
 			$outResult = null;
 			if (!oci_bind_by_name($sth, ":$params", $outResult, $maxLength)) {
 				throw new \Exception('Cannot bind parameter value');
