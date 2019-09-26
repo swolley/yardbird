@@ -6,8 +6,8 @@ The project is still in progress and not totally tested.
 
 ## requirements
 **yardBird** requires php mongodb driver and mongodb/mongodb library if you want to connect to MongoDB.
-*  pecl install mongodb
-*  composer install mongodb/mongodb
+* pecl install mongodb
+* composer install mongodb/mongodb
 
 ### initialization
 ```php

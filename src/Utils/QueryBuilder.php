@@ -376,6 +376,7 @@ class QueryBuilder
 		array_shift($query);
 		//PROCEDURE NAME
 		$procedure = preg_replace('/`|\s/', '', array_shift($query));
+		$params = [];
 		if(count($query) > 0) {
 			$parameters_list = preg_split('/,\s?/', array_shift($query));
 			foreach ($parameters_list as $key => $value) {
@@ -393,8 +394,6 @@ class QueryBuilder
 					$params = array_merge($first_part, $second_part);
 				}
 			}
-		} else {
-			$param = [];
 		}
 
 		return (object)[
@@ -721,7 +720,7 @@ class QueryBuilder
 	public static function whereToSql($where, bool $questionPlaceholders = false): string
 	{
 		$stringed_where = '';
-		foreach ($where as $key => $value) {
+		foreach (array_keys($where) as $key) {
 			$stringed_where .= "`$key`=" . ($questionPlaceholders ? '?' : ":{$key}") . " AND ";
 		}
 		$stringed_where = rtrim($stringed_where, 'AND ');
@@ -741,7 +740,7 @@ class QueryBuilder
 	public static function valuesListToSql(array $params, bool $questionPlaceholders = false): string
 	{
 		$values = '';
-		foreach ($params as $key => $value) {
+		foreach (array_keys($params) as $key) {
 			$values .= "`$key`=" . ($questionPlaceholders ? '?' : ":{$key}") . ", ";
 		}
 		$values = rtrim($values, ', ');

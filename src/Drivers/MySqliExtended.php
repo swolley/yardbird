@@ -186,7 +186,8 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		}
 		$procedure_out_params = rtrim($procedure_out_params, ', ');
 
-		$sth = $this->prepare($this->constructProcedureString($name, $procedure_in_params, $procedure_out_params));
+		$parameters_string = $procedure_in_params . (strlen($procedure_in_params) > 0 && strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
+		$sth = $this->prepare("CALL $name($parameters_string);");
 		
 		if(!$sth) throw new QueryException("Cannot prepare query. Check the syntax.");
 		if(!self::bindParams($inParams, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
@@ -244,35 +245,5 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			throw new BadMethodCallException('$params and $outResult must have same type');
 		}
 		
-	}
-
-	/**
-	 * @param	string	$name	procedure name
-	 * @param	string	$in		stringed input parameters
-	 * @param	string	$out	stringed output parameters
-	 * @return	string	composed procedure query string
-	 */
-	protected function constructProcedureString(string $name, string $in = '', string $out = ''): string
-	{
-		$parameters_string = $in . (strlen($in) > 0 && strlen($out) > 0 ? ', ' : '') . $out;
-		$procedure_string = null;
-		switch ($this->getAttribute(self::ATTR_DRIVER_NAME)) {
-			case 'pgsql':
-			case 'mysql':
-				$procedure_string = "CALL ###name###(###params###);";
-				break;
-			case 'mssql':
-				$procedure_string = "EXEC ###name### ###params###;";
-				break;
-			case 'oci':
-				$procedure_string = "BEGIN ###name### (###params###); END;";
-				break;
-			default:
-				$procedure_string = null;
-		}
-
-		if ($procedure_string === null) throw new \Exception('Requested driver still not supported');
-
-		return str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string);
 	}
 }

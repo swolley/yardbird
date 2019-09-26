@@ -61,7 +61,7 @@ class OCIExtended implements IRelationalConnectable
 		return $params;
 	}
 
-	public static function composeConnectionParams(array $params, array $init_Array = []): array
+	public static function composeConnectionParams(array $params, array $init_array = []): array
 	{
 		$connect_data_name = isset($params['sid']) ? 'sid' : (isset($params['serviceName']) ? 'serviceName' : null);
 
@@ -143,15 +143,15 @@ class OCIExtended implements IRelationalConnectable
 		
 		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		$inserted_id = null;
-		selff: bindOutParams($sth, ":last_inserted_id", $inserted_id);
+		self:: bindOutParams($sth, ":last_inserted_id", $inserted_id);
 		if (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$r = oci_commit($this->_db);
-		if (!$r) {
-			$error = oci_error($$this->_db);
+		$response = oci_commit($this->_db);
+		if (!$response) {
+			$error = oci_error($this->_db);
 			throw new OCIException($error['message'], $error['code']);
 		}
 
