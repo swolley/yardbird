@@ -1,5 +1,6 @@
 {
-    "name": "swolley/php-db-extended",
+	"name": "swolley/yardbird",
+	"description": "A wrapper for multiple types of databases",
     "type": "library",
     "scripts": {
         "test": "SHELL_INTERACTIVE=1 phpunit --bootstrap vendor/autoload.php --colors=always --stop-on-failure ./tests/"
@@ -17,7 +18,7 @@
     ],
     "autoload": {
         "psr-4": {
-            "Swolley\\Database\\": "src"
+            "Swolley\\YardBird\\": "src"
         }
     },
     "require-dev": {

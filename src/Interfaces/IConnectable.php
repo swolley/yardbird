@@ -1,5 +1,5 @@
 <?php
-namespace Swolley\Database\Interfaces;
+namespace Swolley\YardBird\Interfaces;
 
 interface IConnectable
 {
@@ -41,7 +41,7 @@ interface IConnectable
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	function select(string $table, array $params = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+	function select(string $table, array $params = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
 
 	/**
 	 * execute insert query
@@ -80,7 +80,7 @@ interface IConnectable
 	 * @param	int|string	$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return mixed									response array or error message
 	 */
-	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): ?array;
+	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): ?array;
 
 	/**
 	 * fetch and parse query results

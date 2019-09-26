@@ -1,9 +1,9 @@
 <?php
-namespace Swolley\Database\Utils;
+namespace Swolley\YardBird\Utils;
 
-use Swolley\Database\Exceptions\UnexpectedValueException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Utils\Utils;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Utils\Utils;
 use MongoDB\BSON\Regex;
 use phpDocumentor\Reflection\Types\Boolean;
 

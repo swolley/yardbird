@@ -1,14 +1,14 @@
 <?php
-namespace Swolley\Database\Drivers;
+namespace Swolley\YardBird\Drivers;
 
-use Swolley\Database\DBFactory;
-use Swolley\Database\Interfaces\IConnectable;
-use Swolley\Database\Utils\Utils;
-use Swolley\Database\Utils\QueryBuilder;
-use Swolley\Database\Exceptions\ConnectionException;
-use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Connection;
+use Swolley\YardBird\Interfaces\IConnectable;
+use Swolley\YardBird\Utils\Utils;
+use Swolley\YardBird\Utils\QueryBuilder;
+use Swolley\YardBird\Exceptions\ConnectionException;
+use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use	MongoDB\Client as MongoDB;
 //use MongoDB\BSON as BSON;
 use MongoDB\Driver\Command as MongoCmd;
@@ -66,7 +66,7 @@ class MongoExtended extends MongoDB implements IConnectable
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$params = Utils::castToArray($params);
 		$query = (new QueryBuilder)->sqlToMongo($query, $params);
@@ -92,7 +92,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	public function command(array $options = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function command(array $options = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		//FIXME also options needs to be binded
 		try {
@@ -104,7 +104,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	public function select(string $collection, array $filter = [], $options = [], array $aggregate = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $collection, array $filter = [], $options = [], array $aggregate = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($filter);
@@ -189,7 +189,7 @@ class MongoExtended extends MongoDB implements IConnectable
 		}
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			self::bindParams($inParams);
@@ -206,13 +206,13 @@ class MongoExtended extends MongoDB implements IConnectable
 	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		switch ($fetchMode) {
-			case DBFactory::FETCH_ASSOC:
+			case Connection::FETCH_ASSOC:
 				$st->setTypeMap(['root' => 'array', 'document' => 'array', 'array' => 'array']);
 				break;
-			case DBFactory::FETCH_OBJ:
+			case Connection::FETCH_OBJ:
 				$st->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
 				break;	
-				//case DBFactory::FETCH_CLASS:
+			//case Connection::FETCH_CLASS:
 				//	$response->setTypeMap([ 'root' => 'object', 'document' => $fetchModeParam, 'array' => 'array' ]);
 				//	break;
 			default:

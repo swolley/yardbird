@@ -1,14 +1,14 @@
 <?php
-namespace Swolley\Database\Drivers;
+namespace Swolley\YardBird\Drivers;
 
-use Swolley\Database\DBFactory;
-use Swolley\Database\Interfaces\IRelationalConnectable;
-use Swolley\Database\Utils\Utils;
-use Swolley\Database\Exceptions\ConnectionException;
-use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
-use Swolley\Database\Utils\QueryBuilder;
+use Swolley\YardBird\Connection;
+use Swolley\YardBird\Interfaces\IRelationalConnectable;
+use Swolley\YardBird\Utils\Utils;
+use Swolley\YardBird\Exceptions\ConnectionException;
+use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Utils\QueryBuilder;
 
 class MySqliExtended extends \mysqli implements IRelationalConnectable
 {
@@ -72,7 +72,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		];
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$query = Utils::trimQueryString($query);
 		$query = QueryBuilder::operatorsToStandardSyntax($query);
@@ -91,7 +91,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		return $result;
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		//FIELDS
 		$stringed_fields = '`' . join('`, `', $fields) . '`';
@@ -171,7 +171,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		return $st->num_rows > 0;
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		//input params
 		$procedure_in_params = '';
@@ -200,19 +200,19 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			: self::fetch($st, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 	}
 
-	public static function fetch($st, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public static function fetch($st, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$meta = $st->result_metadata();
 		$response = [];
-		if ($fetchMode === DBFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
+		if ($fetchMode === Connection::FETCH_COLUMN && is_int($fetchModeParam)) {
 			while ($row = $meta->fetch_field_direct($fetchModeParam)) {
 				array_push($response, $row);
 			}
-		} elseif ($fetchMode & DBFactory::FETCH_CLASS && is_string($fetchModeParam)) {
+		} elseif ($fetchMode & Connection::FETCH_CLASS && is_string($fetchModeParam)) {
 			while ($row = !empty($fetchPropsLateParams) ? $meta->fetch_object($fetchModeParam, $fetchPropsLateParams) : $meta->fetch_object($fetchModeParam)) {
 				array_push($response, $row);
 			}
-		} elseif($fetchMode & DBFactory::FETCH_OBJ) {
+		} elseif($fetchMode & Connection::FETCH_OBJ) {
 			while ($row = $meta->fetch_object()) {
 				array_push($response, $row);
 			}

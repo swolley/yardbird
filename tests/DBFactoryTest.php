@@ -2,21 +2,21 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
-use Swolley\Database\DBFactory;
-use Swolley\Database\Interfaces\IConnectable;
-use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
-use Swolley\Database\Drivers\MySqliExtended;
-use Swolley\Database\Drivers\PDOExtended;
+use Swolley\YardBird\Connection;
+use Swolley\YardBird\Interfaces\IConnectable;
+use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Drivers\MySqliExtended;
+use Swolley\YardBird\Drivers\PDOExtended;
 
-final class DBFactoryTest extends TestCase
+final class ConnectionTest extends TestCase
 {
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
 	public function test_checkExtension_should_return_exception_if_empty_string_is_passed(): void
   	{
 		$this->expectException(BadMethodCallException::class);
-		$reflection = new \ReflectionClass(get_class(new DBFactory));
+		$reflection = new \ReflectionClass(get_class(new Connection));
 		$method = $reflection->getMethod('checkExtension');
 		$method->setAccessible(true);
 
@@ -25,7 +25,7 @@ final class DBFactoryTest extends TestCase
 	
 	public function test_checkExtension_should_return_null_if_not_in_list_driver(): void
     {
-		$reflection = new \ReflectionClass(get_class(new DBFactory));
+		$reflection = new \ReflectionClass(get_class(new Connection));
 		$method = $reflection->getMethod('checkExtension');
 		$method->setAccessible(true);
 		
@@ -35,12 +35,12 @@ final class DBFactoryTest extends TestCase
 	public function test_invoke_class_should_return_exception_if_empty_array_passed(): void
     {
 		$this->expectException(BadMethodCallException::class);
-		(new DBFactory)([]);
+		(new Connection)([]);
 	}
 
 	public function test_invoke_class_should_return_exception_if_no_supported_driver_found(): void
     {
 		$this->expectException(\Exception::class);
-		(new DBFactory)(['driver' => 'invalid']);
+		(new Connection)(['driver' => 'invalid']);
 	}
 }

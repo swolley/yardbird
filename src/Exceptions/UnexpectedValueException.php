@@ -1,5 +1,5 @@
 <?php
-namespace Swolley\Database\Exceptions;
+namespace Swolley\YardBird\Exceptions;
 
 class UnexpectedValueException extends \UnexpectedValueException
 { 

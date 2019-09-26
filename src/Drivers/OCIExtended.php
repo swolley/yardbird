@@ -1,14 +1,14 @@
 <?php
-namespace Swolley\Database\Drivers;
+namespace Swolley\YardBird\Drivers;
 
-use Swolley\Database\DBFactory;
-use Swolley\Database\Utils\Utils;
-use Swolley\Database\Interfaces\IRelationalConnectable;
-use Swolley\Database\Exceptions\ConnectionException;
-use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
-use Swolley\Database\Utils\QueryBuilder;
+use Swolley\YardBird\Connection;
+use Swolley\YardBird\Utils\Utils;
+use Swolley\YardBird\Interfaces\IRelationalConnectable;
+use Swolley\YardBird\Exceptions\ConnectionException;
+use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Utils\QueryBuilder;
 
 class OCIExtended implements IRelationalConnectable
 {
@@ -89,7 +89,7 @@ class OCIExtended implements IRelationalConnectable
 		];
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$query = Utils::trimQueryString($query);
 		$params = Utils::castToArray($params);
@@ -108,7 +108,7 @@ class OCIExtended implements IRelationalConnectable
 		return $response;
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		//FIELDS
 		$stringed_fields = '`' . join('`, `', $fields) . '`';
@@ -198,7 +198,7 @@ class OCIExtended implements IRelationalConnectable
 		return true;
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		//input params
 		$procedure_in_params = '';
@@ -280,11 +280,11 @@ class OCIExtended implements IRelationalConnectable
 	public static function fetch($st, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$response = [];
-		if ($fetchMode === DBFactory::FETCH_COLUMN && is_int($fetchModeParam)) {
+		if ($fetchMode === Connection::FETCH_COLUMN && is_int($fetchModeParam)) {
 			while ($row = oci_fetch_row($st)[$fetchModeParam] !== false) {
 				array_push($response, $row);
 			}
-		} elseif ($fetchMode & DBFactory::FETCH_CLASS && is_string($fetchModeParam)) {
+		} elseif ($fetchMode & Connection::FETCH_CLASS && is_string($fetchModeParam)) {
 			while ($row = oci_fetch_assoc($st) !== false) {
 				array_push($response, new $fetchModeParam(...$row));
 			}

@@ -1,5 +1,5 @@
 <?php
-namespace Swolley\Database\Interfaces;
+namespace Swolley\YardBird\Interfaces;
 
 interface IRelationalConnectable extends IConnectable
 {

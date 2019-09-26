@@ -1,6 +1,6 @@
 <?php
-namespace  Swolley\Database\Utils;
-use Swolley\Database\Interfaces\IConnectable;
+namespace  Swolley\YardBird\Utils;
+use Swolley\YardBird\Interfaces\IConnectable;
 
 class Mapper
 {

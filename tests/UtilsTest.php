@@ -2,10 +2,10 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
-use Swolley\Database\Utils\Utils;
-use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Utils\Utils;
+use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
 
 final class UtilsTest extends TestCase
 {

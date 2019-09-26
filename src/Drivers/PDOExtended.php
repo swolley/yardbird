@@ -1,15 +1,15 @@
 <?php
 
-namespace Swolley\Database\Drivers;
+namespace Swolley\YardBird\Drivers;
 
-use Swolley\Database\DBFactory;
-use Swolley\Database\Interfaces\IRelationalConnectable;
-use Swolley\Database\Utils\Utils;
-use Swolley\Database\Utils\QueryBuilder;
-use Swolley\Database\Exceptions\ConnectionException;
-use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Connection;
+use Swolley\YardBird\Interfaces\IRelationalConnectable;
+use Swolley\YardBird\Utils\Utils;
+use Swolley\YardBird\Utils\QueryBuilder;
+use Swolley\YardBird\Exceptions\ConnectionException;
+use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
 
 class PDOExtended extends \PDO implements IRelationalConnectable
 {
@@ -101,7 +101,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	public function sql(string $query, $params = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$params = Utils::castToArray($params);
 		$query = Utils::trimQueryString($query);
@@ -140,7 +140,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			//FIELDS
@@ -292,7 +292,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	 * @param	int|string	$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return mixed									response array or error message
 	 */
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
 			//input params
@@ -385,10 +385,10 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		return $found_tables > 1 || $found_tables === 0 ? $columns : $columns[0];
 	}
 
-	public static function fetch($st, int $fetchMode = DBFactory::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public static function fetch($st, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		if (($fetchMode === DBFactory::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & DBFactory::FETCH_CLASS && is_string($fetchModeParam))) {
-			return $fetchMode & DBFactory::FETCH_PROPS_LATE
+		if (($fetchMode === Connection::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & Connection::FETCH_CLASS && is_string($fetchModeParam))) {
+			return $fetchMode & Connection::FETCH_PROPS_LATE
 				? $st->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
 				: $st->fetchAll($fetchMode, $fetchModeParam);
 		} else {

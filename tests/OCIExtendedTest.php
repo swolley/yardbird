@@ -2,12 +2,12 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
-use Swolley\Database\Drivers\OCIExtended;
-use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\ConnectionException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
-use Swolley\Database\Interfaces\IRelationalConnectable;
+use Swolley\YardBird\Drivers\OCIExtended;
+use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\ConnectionException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Interfaces\IRelationalConnectable;
 
 final class OCIExtendedTest extends TestCase
 {

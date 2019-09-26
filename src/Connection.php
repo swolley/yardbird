@@ -1,16 +1,16 @@
 <?php
-namespace Swolley\Database;
+namespace Swolley\YardBird;
 
-use Swolley\Database\Interfaces\IConnectable;
-use Swolley\Database\Drivers\MongoExtended;
-use Swolley\Database\Drivers\OCIExtended;
-use Swolley\Database\Drivers\PDOExtended;
-use Swolley\Database\Drivers\MySqliExtended;
-//use Swolley\Database\Exceptions\QueryException;
-use Swolley\Database\Exceptions\BadMethodCallException;
-use Swolley\Database\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Interfaces\IConnectable;
+use Swolley\YardBird\Drivers\MongoExtended;
+use Swolley\YardBird\Drivers\OCIExtended;
+use Swolley\YardBird\Drivers\PDOExtended;
+use Swolley\YardBird\Drivers\MySqliExtended;
+//use Swolley\YardBird\Exceptions\QueryException;
+use Swolley\YardBird\Exceptions\BadMethodCallException;
+use Swolley\YardBird\Exceptions\UnexpectedValueException;
 
-final class DBFactory
+final class Connection
 {
 	const FETCH_ASSOC = 2;
 	const FETCH_OBJ = 5;
