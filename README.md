@@ -1,3 +1,4 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/50d78b0ce43246178e002afc66dd6706)](https://www.codacy.com/manual/swolley/yardbird?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=swolley/yardbird&amp;utm_campaign=Badge_Grade)
 <img src="images/yardbird-icon-64x64.png" align="right"/>
 
 # yarDBird
