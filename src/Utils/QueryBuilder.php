@@ -592,6 +592,18 @@ class QueryBuilder
 	}
 
 	/**
+	 * compose fields portion of the query
+	 * @param	array	fields
+	 * @return	string	query portion
+	 */
+	public static function fieldsToSql(array $fields): string
+	{
+		return empty($fileds) ? '*' : join(', ', array_map(function($field, $idx) {
+			return is_string($idx) ? "`$idx` as `$field`" : "`$field`";
+		}, $fields, array_keys($fields)));
+	}
+
+	/**
 	 * composes join portion of the query
 	 * @param	array	$join	join parameters
 	 * @return	string	query portion

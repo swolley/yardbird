@@ -17,25 +17,19 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	use TraitDatabase;
 
 	/**
-	 * @var	boolean	$_debugMode	enables debug mode
-	 */
-	private $_debugMode;
-
-	/**
 	 * @param	array	$params	connection parameters
 	 * @param	bool	$debugMode	debug mode
 	 */
 	public function __construct(array $params, bool $debugMode = false)
 	{
-		$params = self::validateConnectionParams($params);
+		$parsed_params = self::validateConnectionParams($params);
+		$this->setInfo($params, $debugMode);
 
 		try {
-			parent::__construct(...[ $params['driver'] === 'oci' ? self::getOciString($params) : self::getDefaultString($params), $params['user'], $params['password'] ]);
+			parent::__construct(...[ $parsed_params['driver'] === 'oci' ? self::getOciString($parsed_params) : self::getDefaultString($parsed_params), $parsed_params['user'], $parsed_params['password'] ]);
 			if (error_reporting() === E_ALL) {
 				parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
 			}
-			$this->_debugMode = $debugMode;
-			$this->_driver = $params['driver'];
 		} catch (\PDOException $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode(), $e);
 		}
@@ -85,15 +79,6 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		return $params;
 	}
 
-	/**
-	 * execute inline or complex queries query
-	 * @param 	string  		$query          			query text with placeholders
-	 * @param 	array|object  	$params         			assoc array with placeholder's name and relative values
-	 * @param 	int     		$fetchMode     				(optional) PDO fetch mode. default = associative array
-	 * @param	int|string		$fetchModeParam				(optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
-	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
-	 * @return	mixed										response array or error message
-	 */
 	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$params = Utils::castToArray($params);
@@ -120,34 +105,12 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	/**
-	 * with sql drivers this is a very simple and limited SELECT query builder whit list of fields and AND-separated where clauses
-	 * @param   string  		$table      				table name
-	 * @param   array			$params     				assoc array with columns'name 
-	 * @param   array			$where     					string query part or assoc array with placeholder's name and relative values. Logical separator between elements will be AND
-	 * @param	array			$join						joins array
-	 * @param 	int     		$fetchMode     				(optional) PDO fetch mode. default = associative array
-	 * @param	int|string		$fetchModeParam				(optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
-	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
-	 * @return	mixed										response array or error message
-	 */
 	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
-			//FIELDS
-			$stringed_fields = '`' . join('`, `', $fields) . '`';
-			//JOINS
-			$stringed_joins = QueryBuilder::joinsToSql($join);
-			//WHERE
-			$stringed_where = QueryBuilder::whereToSql($where);
-			//ORDER BY
-			$stringed_order_by = QueryBuilder::orderByToSql($orderBy);
-			//LIMIT
-			$stringed_limit = QueryBuilder::limitToSql($limit);
+			$sth = $this->prepare('SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
 
-			$sth = $this->prepare("SELECT {$stringed_fields} FROM {$table} {$stringed_joins} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
-
-			if (!self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
+			if (!empty($where) && !self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 			if (!$sth->execute()) {
 				$error = $sth->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
@@ -159,13 +122,6 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	/**
-	 * execute insert query
-	 * @param   string  		$table      table name
-	 * @param   array|object	$params     assoc array with placeholder's name and relative values
-	 * @param   boolean 		$ignore		performes an 'insert ignore' query
-	 * @return  int|string|bool            	new row id if key is autoincremental or boolean
-	 */
 	public function insert(string $table, $params, bool $ignore = false)
 	{
 		$params = Utils::castToArray($params);
@@ -178,10 +134,10 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 			$sth = null;
 			switch ($driver) {
 				case 'mysql':
-					$sth = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `{$table}` ({$keys}) VALUES ({$values})");
+					$sth = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `$table` ($keys) VALUES ($values)");
 					break;
 				case 'oci':
-					$sth = $this->prepare("BEGIN INSERT INTO `{$table}` ({$keys}) VALUES ({$values})" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END;');
+					$sth = $this->prepare("BEGIN INSERT INTO `$table` ($keys) VALUES ($values)" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END;');
 					break;
 			}
 
@@ -203,13 +159,6 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	/**
-	 * execute update query. Where is required, no massive update permitted
-	 * @param   string  		$table	    table name
-	 * @param   array|object	$params     assoc array with placeholder's name and relative values
-	 * @param   string|array  	$where      where condition (string for Relational Dbs, array for Mongo). no placeholders permitted
-	 * @return  bool	                   	correct query execution confirm as boolean or error message
-	 */
 	public function update(string $table, $params, $where = null): bool
 	{
 		$params = Utils::castToArray($params);
@@ -222,7 +171,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		//TODO how to bind where clause?
 		try {
 			$values = QueryBuilder::valuesListToSql($params);
-			$sth = $this->prepare("UPDATE `{$table}` SET {$values}" . ($where !== null ? " WHERE {$where}" : ''));
+			$sth = $this->prepare("UPDATE `$table` SET $values" . ($where !== null ? " WHERE $where" : ''));
 
 			if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 			if (!$sth->execute()) {
@@ -236,13 +185,6 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	/**
-	 * execute delete query. Where is required, no massive delete permitted
-	 * @param   string  		$table		table name
-	 * @param   string|array  	$where		where condition (string for Relational Dbs, array for Mongo). no placeholders permitted
-	 * @param   array   		$params		assoc array with placeholder's name and relative values for where condition
-	 * @return  bool						correct query execution confirm as boolean or error message
-	 */
 	public function delete(string $table, $where = null, array $params = null): bool
 	{
 		if ($where !== null && !is_string($where)) {
@@ -255,7 +197,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 
 		try {
-			$sth = $this->prepare("DELETE FROM {$table}" . ($where !== null ? " WHERE {$where}" : ''));
+			$sth = $this->prepare("DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
 			if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 			if (!$sth->execute()) {
 				$error = $sth->errorInfo();
@@ -268,16 +210,6 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	/**
-	 * execute procedure call.
-	 * @param  string		$table          			procedure name
-	 * @param  array	  	$inParams       			array of input parameters
-	 * @param  array	  	$outParams      			array of output parameters
-	 * @param  int     		$fetchMode     				(optional) PDO fetch mode. default = associative array
-	 * @param	int|string	$fetchModeParam				(optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
-	 * @param	int|string	$fetchModePropsLateParams	(optional) fetch mode param to class contructor
-	 * @return mixed									response array or error message
-	 */
 	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
@@ -468,24 +400,10 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 	private static function getOciString(array $params): string
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
-
 		if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
-
+		
 		$connect_data_value = $params[$connect_data_name];
-		$tns = preg_replace(
-			"/\n\r|\n|\r|\n\r|\t|\s/",
-			'',
-			"
-			(DESCRIPTION = 
-				(ADDRESS_LIST = 
-					(ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))
-				)
-				(CONNECT_DATA = 
-					(" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")
-				)
-			)"
-		);
-
+		$tns = preg_replace("/\n\r|\n|\r|\n\r|\t|\s/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
 		return "oci:dbname={$tns};charset={$params['charset']}";
 	}
 }

@@ -26,18 +26,17 @@ class OCIExtended implements IRelationalConnectable
 	 */
 	public function __construct(array $params, bool $debugMode = false)
 	{
-		$params = self::validateConnectionParams($params);
+		$parsed_params = self::validateConnectionParams($params);
+		$this->setInfo($params, $debugMode);
+		
 		try {
-			$connect_data_name = isset($params['sid']) ? 'sid' : (isset($params['serviceName']) ? 'serviceName' : null);
+			$connect_data_name = isset($parsed_params['sid']) ? 'sid' : (isset($parsed_params['serviceName']) ? 'serviceName' : null);
 			if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
 
 			$connect_data_value = $params[$connect_data_name];
-			$connection_string = preg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
-
-			$this->_db = oci_connect(...[ $params['user'], $params['password'], $connection_string ]);
-			//$this->_debugMode = $debugMode;
+			$connection_string = preg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$parsed_params['host']})(PORT = {$parsed_params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
+			$this->_db = oci_connect(...[ $parsed_params['user'], $parsed_params['password'], $connection_string ]);
 			oci_internal_debug($debugMode);
-			$this->_driver = 'oci';
 		} catch(\Throwable $e) {
 			throw new ConnectionException('Error while connecting to db');
 		}
@@ -91,19 +90,9 @@ class OCIExtended implements IRelationalConnectable
 
 	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		//FIELDS
-		$stringed_fields = '`' . join('`, `', $fields) . '`';
-		//JOINS
-		$stringed_joins = QueryBuilder::joinsToSql($join);
-		//WHERE
-		$stringed_where = QueryBuilder::whereToSql($where);
-		//ORDER BY
-		$stringed_order_by = QueryBuilder::orderByToSql($orderBy);
-		//LIMIT
-		$stringed_limit = QueryBuilder::limitToSql($limit);
-		$sth = oci_parse($this->_db, "SELECT {$stringed_fields} FROM {$table} {$stringed_joins} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
+		$sth = oci_parse($this->_db, 'SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
 
-		if(!self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!empty($where) && !self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		if (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);
@@ -120,7 +109,7 @@ class OCIExtended implements IRelationalConnectable
 		$params = Utils::castToArray($params);
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
-		$sth = oci_parse($this->_db, "BEGIN INSERT INTO {$table} ({$keys}) VALUES ({$values})" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END; RETURNING RowId INTO :last_inserted_id');
+		$sth = oci_parse($this->_db, "BEGIN INSERT INTO `$table` ($keys) VALUES ($values)" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END; RETURNING RowId INTO :last_inserted_id');
 		
 		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		$inserted_id = null;
@@ -166,7 +155,7 @@ class OCIExtended implements IRelationalConnectable
 	{
 		if($where !== null && !is_string($where)) throw new UnexpectedValueException('$where param must be of type string');
 
-		$sth = oci_parse($this->_db, "DELETE FROM {$table}" . ($where !== null ? " WHERE {$where}" : ''));
+		$sth = oci_parse($this->_db, "DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
 		
 		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		if (!oci_execute($sth)) {

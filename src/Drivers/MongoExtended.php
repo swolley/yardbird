@@ -9,6 +9,7 @@ use Swolley\YardBird\Exceptions\ConnectionException;
 use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Interfaces\TraitDatabase;
 use	MongoDB\Client as MongoDB;
 //use MongoDB\BSON as BSON;
 use MongoDB\Driver\Command as MongoCmd;
@@ -17,32 +18,24 @@ use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
 use MongoDB\BSON\Regex;
 use MongoDB\BSON\ObjectID;
-use Swolley\YardBird\Interfaces\TraitDatabase;
 
 class MongoExtended extends MongoDB implements IConnectable
 {
 	use TraitDatabase;
-	/**
-	 * @var	string	$_dbName	db name
-	 * @var	boolean	$_debugMode	enables debug mode
-	 */
-	private $_dbName;
-	private $_debugMode;
-	
+		
 	/**
 	 * @param	array	$params		connection parameters
 	 * @param	bool	$debugMode	debug mode
 	 */
 	public function __construct(array $params, bool $debugMode = false)
 	{
-		$params = self::validateConnectionParams($params);
+		$parsed_params = self::validateConnectionParams($params);
+		$this->setInfo($params, $debugMode);
+
 		try {
-			$connection_string = "mongodb://{$params['user']}:{$params['password']}@{$params['host']}:{$params['port']}";
+			$connection_string = "mongodb://{$parsed_params['user']}:{$parsed_params['password']}@{$parsed_params['host']}:{$parsed_params['port']}";
 			parent::__construct(...[ $connection_string, ['authSource' => 'admin'] ]);
 			$this->listDatabases();
-			$this->_dbName = $params['dbName'];
-			$this->_debugMode = $debugMode;
-			$this->_driver = 'mongodb';
 		} catch (\Exception $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
@@ -52,6 +45,10 @@ class MongoExtended extends MongoDB implements IConnectable
 	{
 		//string $host, int $port, string $user, string $pass, string $dbName
 		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) throw new BadMethodCallException("host, user, password, dbName are required");
+
+		if(!isset($params['port'])) {
+			$params['port'] = 27017;
+		}
 
 		return $params;
 	}

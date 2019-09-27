@@ -9,28 +9,24 @@ use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Utils\QueryBuilder;
-use Swolley\YardBird\Interfaces\raitDatabase;
+use Swolley\YardBird\Interfaces\TraitDatabase;
 
 class MySqliExtended extends \mysqli implements IRelationalConnectable
 {
 	use TraitDatabase;
-	/**
-	 * @var	boolean	$_debugMode	enables debug mode
-	 */
-	private $_debugMode;
-
+	
 	/**
 	 * @param	array	$params	connection parameters
 	 * @param	bool	$debugMode	debug mode
 	 */
 	public function __construct(array $params, $debugMode = false)
 	{
-		$params = self::validateConnectionParams($params);
+		$parsed_params = self::validateConnectionParams($params);
+		$this->setInfo($params, $debugMode);
+
 		try {
-			parent::__construct(...[ $params['host'], $params['user'], $params['password'], $params['dbName'], $params['port'] ]);
-			$this->set_charset($params['charset']);
-			$this->_debugMode = $debugMode;
-			$this->_driver = 'mysql';
+			parent::__construct(...[ $parsed_params['host'], $parsed_params['user'], $parsed_params['password'], $parsed_params['dbName'], $parsed_params['port'] ]);
+			$this->set_charset($parsed_params['charset']);
 		} catch(\Throwable $e) {
 			throw new ConnectionException($e->getMessage(), $e->getCode());
 		}
@@ -85,20 +81,10 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 
 	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		//FIELDS
-		$stringed_fields = '`' . join('`, `', $fields) . '`';
-		//JOINS
-		$stringed_joins = QueryBuilder::joinsToSql($join);
-		//WHERE
-		$stringed_where = QueryBuilder::whereToSql($where, true);
-		//ORDER BY
-		$stringed_order_by = QueryBuilder::orderByToSql($orderBy);
-		//LIMIT
-		$stringed_limit = QueryBuilder::limitToSql($limit);
-		$sth = $this->prepare("SELECT {$stringed_fields} FROM {$table} {$stringed_joins} {$stringed_where} {$stringed_order_by} {$stringed_limit}");
+		$sth = $this->prepare('SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where, true) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
 		
 		if(!$sth) throw new QueryException("Cannot prepare query. Check the syntax.");
-		if(!self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
+		if(!empty($where) && !self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		if(!$sth->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		
 		$result = self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
@@ -113,7 +99,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		$keys_list = array_keys($params);
 		$keys = '`' . implode('`, `', $keys_list) . '`';
 		$values = rtrim(str_repeat("?, ", count($keys_list)), ', ');
-		$sth = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `{$table}` ({$keys}) VALUES ({$values})");
+		$sth = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `$table` ($keys) VALUES ($values)");
 		
 		if(!$sth) throw new QueryException("Cannot prepare query. Check the syntax.");
 		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
@@ -189,6 +175,41 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		self::bindOutParams($outParams, $sth, $outResult);
 		
 		return count($outParams) > 0 ? $outResult : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+	}
+
+	public function showTables(): array
+	{
+		return array_map(function ($table) {
+			return array_values($table)[0];
+		}, $this->sql('SHOW TABLES'));
+	}
+
+	public function showColumns($tables): array
+	{
+		if (is_string($tables)) {
+			$tables = [$tables];
+		} elseif (!is_array($tables)) {
+			throw new UnexpectedValueException('Table name must be string or array of strings');
+		}
+
+		$query = "SHOW COLUMNS FROM ###name###";
+		$columns = [];
+		foreach ($tables as $table) {
+			$cur = $this->sql(str_replace('###name###', $table, $query));
+			$columns[$table] = array_map(function ($column) {
+				$column_name = $column['Field'];
+				$column_data = [ 
+					'type' => mb_strpos($column['Type'], 'char') !== false || mb_strpos($column['Type'], 'text') !== false ? 'string' : preg_replace("/int|year|month/", 'integer', preg_replace("/\(|\)|\\d|unsigned|big|small|tiny|\\s/i", '', strtolower($column['Type']))),
+					'nullable' => $column['Null'] === 'YES',
+					'default' => $column['Default']
+				];
+				
+				return [$column_name => $column_data];
+			}, $cur);
+		}
+
+		$found_tables = count($columns);
+		return $found_tables > 1 || $found_tables === 0 ? $columns : $columns[0];
 	}
 
 	public static function fetch($sth, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array

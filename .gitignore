@@ -3,3 +3,4 @@ vendor
 index.php
 .phpunit.result.cache
 codecoverage
+composer.lock

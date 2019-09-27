@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Swolley\YardBird\Utils;
 
 use Swolley\YardBird\Exceptions\BadMethodCallException;
@@ -39,5 +41,14 @@ class Utils
 	public static function trimQueryString(string $query): string
 	{
 		return rtrim(preg_replace('/\s\s+/', ' ', $query), ';');
+	}
+
+	/**
+	 * @param	mixed	$data	data to hash
+	 * @return	string	hashed data
+	 */
+	public static function hash($data): string
+	{
+		return md5(serialize($data));
 	}
 }
