@@ -40,7 +40,7 @@ class Utils
 	 */
 	public static function trimQueryString(string $query): string
 	{
-		return rtrim(preg_replace('/\s\s+/', ' ', $query), ';');
+		return rtrim(mb_ereg_replace('/\s\s+/', ' ', $query), ';');
 	}
 
 	/**
@@ -54,6 +54,11 @@ class Utils
 
 	public static function toCamelCase(string $string): string
 	{
-		return preg_replace('/_/g', '', ucwords(preg_replace("/-|_|\s/g", '_', $string, '_')));
+		return mb_ereg_replace('/_/', '', ucwords(mb_ereg_replace("/-|_|\s/", '_', $string), '_'));
+	}
+
+	public static function toPascalCase(string $string): string 
+	{
+		return lcfirst(self::toCamelCase($string));
 	}
 }

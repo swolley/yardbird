@@ -19,7 +19,7 @@ use MongoDB\Driver\Exception as MongoException;
 use MongoDB\BSON\Regex;
 use MongoDB\BSON\ObjectID;
 
-class MongoExtended extends MongoDB implements IConnectable
+class Mongo extends MongoDB implements IConnectable
 {
 	use TraitDatabase;
 		

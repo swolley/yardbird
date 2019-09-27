@@ -2,64 +2,52 @@
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
-use Swolley\YardBird\Drivers\OCIExtended;
+use Swolley\YardBird\Drivers\Mysqli;
 use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\ConnectionException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Interfaces\IRelationalConnectable;
 
-final class OCIExtendedTest extends TestCase
+final class MysqliTest extends TestCase
 {
+
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
-	public function test_OCIExtended_should_implements_IRelationalConnectable(): void
+	public function test_Mysqli_should_implements_IRelationalConnectable(): void
 	{
-		$reflection = new \ReflectionClass(OCIExtended::class);
+		$reflection = new \ReflectionClass(Mysqli::class);
 		$this->assertTrue($reflection->implementsInterface(IRelationalConnectable::class));
 	}
 
 	public function test_validateConnectionParams_should_return_exception_if_no_valid_parameters_passed(): void
     {
 		$this->expectException(BadMethodCallException::class);
-		new OCIExtended([
+		new Mysqli([
 			'host' => '',
 			'user' => null,
-			'password' => null,
-			'sid' => null
-
+			'password' => null
 		]);
 	}
 
 	public function test_validateConnectionParams_should_return_exception_if_missing_parameters(): void
     {
 		$this->expectException(BadMethodCallException::class);
-		new OCIExtended([
-			'host' => 'localhost'
+		new Mysqli([
+			'driver' => 'mysql'
 		]);
-	}
-
-	public function test_composeConnectionParams_should_throw_exception_if_no_sid_and_no_service_name(): void
-	{
-		$params = ['host' => 'host', 'port' => 'port', 'dbName' => 'dbName', 'charset' => 'charset', 'user' => 'username', 'password' => 'userpassword'];
-		$this->expectException(BadMethodCallException::class);
-		$reflection = new \ReflectionClass(OCIExtended::class);
-		$method = $reflection->getMethod('composeConnectionParams');
-		$method->setAccessible(true);
-
-		$method->invokeArgs($reflection, [$params]);
 	}
 
 	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
 	{
 		$this->expectException(ConnectionException::class);
-		$params = ['host' => 'localhost', 'port' => 3306, 'charset' => 'UTF8', 'user' => 'invalid', 'password' => 'invalid', 'sid' => 'invalid'];
-		new OCIExtended($params);
+		$params = ['host' => 'localhost', 'port' => 3306, 'dbName' => 'invalid', 'charset' => 'UTF8', 'user' => 'invalid', 'password' => 'invalid'];
+		new Mysqli($params);
 	}
 
 	/*public function test_sql_should_throw_exception_if_parameters_not_binded(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysqli::class);
 		$dbMock->method('sql')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -69,7 +57,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_sql_should_throw_exception_if_cant_execute_query(): void
 	{
 		$this->expectException(QueryException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysqli::class);
 		$dbMock->method('sql')
 			->will($this->throwException(new QueryException));
 
@@ -79,7 +67,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_select_should_throw_exception_if_parameters_not_binded(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('select')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -89,17 +77,27 @@ final class OCIExtendedTest extends TestCase
 	public function test_select_should_throw_exception_if_cant_execute_query(): void
 	{
 		$this->expectException(QueryException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('select')
 			->will($this->throwException(new QueryException));
 
 		$dbMock->select('table', ['field1'], ['field1' => 'value' ]);
 	}
 
+	public function test_insert_should_throw_exception_if_driver_not_supported(): void
+	{
+		$this->expectException(\Exception::class);
+		$dbMock = $this->createMock(Mysql::class);
+		$dbMock->method('insert')
+			->will($this->throwException(new \Exception));
+
+		$dbMock->insert('table', ['field1' => 'field2']);
+	}
+
 	public function test_insert_should_throw_exception_if_parameters_not_binded(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('insert')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -109,7 +107,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_insert_should_throw_exception_if_cant_execute_query(): void
 	{
 		$this->expectException(QueryException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('insert')
 			->will($this->throwException(new QueryException));
 
@@ -119,7 +117,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_update_should_throw_exception_if_where_param_not_valid(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('update')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -129,7 +127,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_update_should_throw_exception_if_parameters_not_binded(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('update')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -139,7 +137,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_update_should_throw_exception_if_cant_execute_query(): void
 	{
 		$this->expectException(QueryException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('update')
 			->will($this->throwException(new QueryException));
 
@@ -149,7 +147,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_delete_should_throw_exception_if_where_param_not_valid(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('delete')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -159,7 +157,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_delete_should_throw_exception_if_parameters_not_binded(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('delete')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -169,7 +167,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_delete_should_throw_exception_if_cant_execute_query(): void
 	{
 		$this->expectException(QueryException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('delete')
 			->will($this->throwException(new QueryException));
 
@@ -179,7 +177,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_procedure_should_throw_exception_if_parameters_not_binded(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('procedure')
 			->will($this->throwException(new UnexpectedValueException));
 
@@ -189,7 +187,7 @@ final class OCIExtendedTest extends TestCase
 	public function test_procedure_should_throw_exception_if_cant_execute_query(): void
 	{
 		$this->expectException(QueryException::class);
-		$dbMock = $this->createMock(OCIExtended::class);
+		$dbMock = $this->createMock(Mysql::class);
 		$dbMock->method('procedure')
 			->will($this->throwException(new QueryException));
 

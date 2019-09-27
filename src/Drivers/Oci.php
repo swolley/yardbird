@@ -11,7 +11,7 @@ use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Utils\QueryBuilder;
 use Swolley\YardBird\Interfaces\TraitDatabase;
 
-class OCIExtended implements IRelationalConnectable
+class Oci implements IRelationalConnectable
 {
 	use TraitDatabase;
 
@@ -34,7 +34,7 @@ class OCIExtended implements IRelationalConnectable
 			if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
 
 			$connect_data_value = $params[$connect_data_name];
-			$connection_string = preg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$parsed_params['host']})(PORT = {$parsed_params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
+			$connection_string = mb_ereg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$parsed_params['host']})(PORT = {$parsed_params['port']}))) (CONNECT_DATA = (" . strtoupper(mb_ereg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
 			$this->_db = oci_connect(...[ $parsed_params['user'], $parsed_params['password'], $connection_string ]);
 			oci_internal_debug($debugMode);
 		} catch(\Throwable $e) {
@@ -82,7 +82,7 @@ class OCIExtended implements IRelationalConnectable
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = preg_match('/^update|^insert|^delete/i', $query) === 1 ?: self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		$response = mb_ereg_match('/^update|^insert|^delete/i', $query) === 1 ?: self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($sth);
 		
 		return $response;

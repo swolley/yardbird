@@ -29,7 +29,6 @@ final class Pool /*extends ICrudable*//* implements \Countable*/
 		}
 
 		$this->connections[$name] = (new Connection)($connectionParameters, $debugMode);
-
 		return $this;
 	}
 
@@ -62,12 +61,9 @@ final class Pool /*extends ICrudable*//* implements \Countable*/
 	 */
 	public function list(): array
 	{
-		$list = [];
-		foreach ($this->connections as $name => $connection) {
-			$list[$name] = ['driver' => $connection->getType(), 'host' => $connection->getHost(), 'dbName' => $connection->getDbName()];
-		}
-
-		return $list;
+		return array_map(function($connection, $idx) {
+			return $connection->getInfo();
+		}, $this->connections, array_keys($this->connections));
 	}
 
 	/**

@@ -11,7 +11,7 @@ use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Utils\QueryBuilder;
 use Swolley\YardBird\Interfaces\TraitDatabase;
 
-class MySqliExtended extends \mysqli implements IRelationalConnectable
+class Mysqli extends \mysqli implements IRelationalConnectable
 {
 	use TraitDatabase;
 	
@@ -73,7 +73,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 		if(!$sth->execute()) throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		
-		$result = preg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->num_rows > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		$result = mb_ereg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->num_rows > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		$sth->close();
 		
 		return $result;

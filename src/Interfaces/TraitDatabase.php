@@ -44,6 +44,11 @@ trait TraitDatabase
 		$this->_hash = Utils::hash($connectionParams);
 	}
 
+	public function getInfo(): array
+	{
+		return [ 'driver' => $this->getType(), 'host' => $this->getHost(), 'dbName' => $this->getDbName() ];
+	}
+
 	/**
 	 * driver getter
 	 * @return	string	driver
