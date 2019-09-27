@@ -45,7 +45,7 @@ class Mongo extends MongoDB implements IConnectable
 	{
 		//string $host, int $port, string $user, string $pass, string $dbName
 		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) throw new BadMethodCallException("host, user, password, dbName are required");
-
+		//defaults
 		if(!isset($params['port'])) {
 			$params['port'] = 27017;
 		}
@@ -61,22 +61,16 @@ class Mongo extends MongoDB implements IConnectable
 		switch ($query->type) {
 			case 'command':
 				return $this->command($query->options, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
-				break;
 			case 'select':
 				return $this->select($query->table, $query->filter, $query->options, $query->aggregate, $query->orderBy, $query->limit, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
-				break;
 			case 'insert':
 				return $this->insert($query->table, $query->params, $query->ignore);
-				break;
 			case 'update':
 				return $this->update($query->table, $query->params, $query->where);
-				break;
 			case 'delete':
 				return $this->delete($query->table, $query->params);
-				break;
 			case 'procedure':
 				return $this->procedure($query->table, $query->params);
-				break;
 		}
 	}
 
@@ -212,7 +206,6 @@ class Mongo extends MongoDB implements IConnectable
 			}
 			
 			$value = $value instanceof Regex ? new Regex(filter_var($value->getPattern(), $varType, $options)) : filter_var($value, $varType, $options);
-
 			if ($value === null) return false;
 
 			if($key === '_id') {

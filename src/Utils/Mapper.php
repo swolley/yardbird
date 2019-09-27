@@ -16,6 +16,19 @@ class Mapper
 	public static function mapDB(IConnectable $conn, bool $prettyNames = false, string $classPath = null): void
 	{
 		$tables = $conn->showColumns($conn->showTables());
+		self::mapTables($tables, $prettyNames, $classPath);
+	}
+
+	/**
+	 * writes down new class code from bd columns data
+	 * @param	string|array	$tables 		table or tables list
+	 * @param	bool			$prettyNames	(optional) respect db naming convention or prettify tables and properties names. Default is false
+	 * @param	string|null		$classPath		(optional) write generated class definitions to filesystem or evaluate at runtime
+	 */
+	public static function mapTables($tables, bool $prettyNames = false, string $classPath = null): void
+	{
+		$tables = is_string($tables) ? [$tables] : $tables;
+
 		foreach ($tables as $table => $fields) {
 			$class_name = $prettyNames ? Utils::toCamelCase($table) : $table;
 			$class_code = '';
@@ -24,10 +37,10 @@ class Mapper
 				$class_code .= "\t/*$field {$info['type']}*/" . PHP_EOL;
 				$class_code .= "\tprivate \$$property_name; " . PHP_EOL;
 				$default = $info['nullable'] ? '= ' . ($info['default'] === null ? 'null' : $info['default']) : ($info['default'] != null ? '= ' . $info['default'] : '');
-				$type_to_type = static::typeToType($info['type'], $default);
+				$type_to_type = static::typeToType($info['type'], $property_name, $default);
 				//all properties are created as private with getter and setter containig values validations from db column data)
 				$class_code .= "\tpublic function get" . ucwords($property_name) . '() { return $this->' . $property_name . '; }' . PHP_EOL;
-				$class_code .= "\tpublic function set" . ucwords($property_name) . '(' . ($info['nullable'] ? '?' : '') . $type_to_type[0] . ' $value ' . $default . ') { ' . $type_to_type[1] . ' $this->' . $property_name . ' = ' . $type_to_type[2] . '; ' . (!empty($type_to_type[3]) ? 'else $this->' . $property_name . ' = ' . $type_to_type[3] . ';' : '') . ' }' . PHP_EOL . PHP_EOL;
+				$class_code .= "\tpublic function set" . ucwords($property_name) . '(' . ($info['nullable'] ? '?' : '') . "$type_to_type[0] $property_name $default ) { $type_to_type[1] " . '$this->' . "$property_name = $type_to_type[2] ; " . (!empty($type_to_type[3]) ? 'else $this->' . "$property_name = $type_to_type[3];" : '') . ' }' . PHP_EOL . PHP_EOL;
 			}
 			
 			$new_class = "/*$table*/" . PHP_EOL . "final class $class_name extends Swolley\YardBird\Models\AbstractModel { " . PHP_EOL . PHP_EOL . $class_code . "}";
@@ -48,71 +61,66 @@ class Mapper
 	 * @param	mixed	$default	used to add null value accept in validation
 	 * @return	array	portions of property assignment code 
 	 */
-	private static function typeToType(string $type, $default = null): array
+	private static function typeToType(string $type, string $propertyName, $default = null): array
 	{
 		//types mapping
 		$types = [
-			'char' => [ 'string', '', '$value', '' ],
-			'varchar' => [ 'string', '', '$value', '' ],
-			'varchar2' => [ 'string', '', '$value', '' ],
-			'text' => [ 'string', '', '$value', '' ],
-			'json' => [ '', '$value === null || is_array($value)', 'json_decode($value, true)', '$value' ],
-
-			'decimal' => [ 'float', '', '$value', '' ],
-			'float' => [ 'float', '', '$value', '' ],
+			'char' => [ 'string', '', $propertyName, '' ],
+			'varchar' => [ 'string', '', $propertyName, '' ],
+			'varchar2' => [ 'string', '', $propertyName, '' ],
+			'text' => [ 'string', '', $propertyName, '' ],
 			
-			'int' => [ 'int', '', '$value', '' ],
-			'tinyint' => [ 'int', '', '$value', '' ],
-			'smallint' => [ 'int', '', '$value', '' ],
-			'bigint' => [ 'int', '', '$value', '' ],
-			'integer' => [ 'int', '', '$value', '' ],
-			'year' => [ 'int', '', '$value', '' ],
-			'month' => [ 'int', '', '$value', '' ],
+			'json' => [ '', "$propertyName === null || is_array($propertyName)", "json_decode($propertyName, true)", $propertyName ],
 
-			'date' => [ '', '$value instanceof DateTime', '$value', 'new DateTime($value)' ],
-			'datetime' => [ '', '$value instanceof DateTime', '$value', 'new DateTime($value)' ],
-			'timestamp' => [ '', '$value instanceof DateTime', '$value', 'new DateTime($value)' ],
+			'decimal' => [ 'float', '', $propertyName, '' ],
+			'float' => [ 'float', '', $propertyName, '' ],
+			
+			'int' => [ 'int', '', $propertyName, '' ],
+			'tinyint' => [ 'int', '', $propertyName, '' ],
+			'smallint' => [ 'int', '', $propertyName, '' ],
+			'bigint' => [ 'int', '', $propertyName, '' ],
+			'integer' => [ 'int', '', $propertyName, '' ],
+			'year' => [ 'int', '', $propertyName, '' ],
+			'month' => [ 'int', '', $propertyName, '' ],
 
-			'enum' => ['', '', '$value', '']
+			'date' => [ '', "$propertyName instanceof DateTime", $propertyName, "new DateTime($propertyName)" ],
+			'datetime' => [ '', "$propertyName instanceof DateTime", $propertyName, "new DateTime($propertyName)" ],
+			'timestamp' => [ '', "$propertyName instanceof DateTime", $propertyName, "new DateTime($propertyName)" ],
+
+			'enum' => ['', '', $propertyName, '']
 		];
 
-		$rules = preg_split('/\(|\)|\s/', $type);
-		$rules = array_map('trim', $rules);
-		$return = $types[$rules[0]];
-		unset($rules[0]);
+		$rul = array_map('trim', preg_split('/\(|\)|\s/', $type));
+		$ret = $types[$rul[0]];
+		unset($rul[0]);
 
-		$idxs = array_keys($rules);
+		$idxs = array_keys($rul);
 		foreach($idxs as $idx) {
-			if(empty($rules[$idx])) {
-				//unset($rules[$idx]);
-				continue;
-			}
+			if(empty($rul[$idx])) continue;
 
 			//multiple validation concatenation
-			if(!empty($return[1])) {
-				$return[1] .= ' && ';
+			if(!empty($ret[1])) {
+				$ret[1] .= ' && ';
 			}
 
-			if(is_numeric($rules[$idx])) {
-				if($return[0] === 'int' || $return[0] === 'string') {
-					$return[1] .= 'mb_strlen(' . ($return[0] === 'int' ? '(string)' : '') . '$value)' . (mb_strpos($type, 'char') === 0 ? ' = ' : ' <= ') . $rules[$idx];
-				} elseif($return[0] === 'float' && mb_ereg_match('/\d*,\d*/', $rules[$idx])) {
-					$exploded = explode(',', $rules[$idx]);
-					$return[1] .= 'mb_strlen((string)$value) <= ' . $exploded[0] . ' && mb_strlen((string)((int)$value - floor($value))) <= ' . $exploded[0];
+			if(is_numeric($rul[$idx])) {
+				if($ret[0] === 'int' || $ret[0] === 'string') {
+					$ret[1] .= 'mb_strlen(' . ($ret[0] === 'int' ? '(string)' : '') . "$ret[2])" . (mb_strpos($type, 'char') === 0 ? ' = ' : ' <= ') . $rul[$idx];
+				} elseif($ret[0] === 'float' && mb_ereg_match('/\d*,\d*/', $rul[$idx])) {
+					list($int, $dec) = explode(',', $rul[$idx]);
+					$ret[1] .= "mb_strlen((string)$ret[2]) <= $int && mb_strlen((string)((int)$ret[2] - floor($ret[2]))) <= $dec";
 				}
-				//unset($rules[$idx]);
-			} elseif($rules[$idx] === 'unsigned') {
-				$return[1] .= $return[2]  . ' > 0';
-				//unset($rules[$idx]);
-			} elseif(mb_ereg_match('/\w*(,\s?\w*)?/', $rules[$idx])) {
-				$return[1] .= 'in_array(' . $return[2] . ', [' . $rules[$idx] . '])';
+			} elseif($rul[$idx] === 'unsigned') {
+				$ret[1] .= $ret[2]  . ' > 0';
+			} elseif(mb_ereg_match('/\w*(,\s?\w*)?/', $rul[$idx])) {
+				$ret[1] .= 'in_array(' . $ret[2] . ', [' . $rul[$idx] . '])';
 			}
 		}
 
-		if(!empty($return[1])) {
-			$return[1] = 'if(' . $return[1] . (strpos($default, 'null') !== false ? ' || ' . $return[2] . ' === null' : '') .')';
+		if(!empty($ret[1])) {
+			$ret[1] = 'if(' . $ret[1] . (strpos($default, 'null') !== false ? ' || ' . $ret[2] . ' === null' : '') .')';
 		}
 
-		return $return;
+		return $ret;
 	}
 }
