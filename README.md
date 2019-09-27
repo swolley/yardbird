@@ -7,12 +7,14 @@
 **yarDBird** is a wrapper for multiple types of databases (currently supported are all PDO drivers, Mysqli, OCI8, MongoDB). The library exposes common methods for crud functions and a parser class to translate sql queries to mongodb library syntax.
 The project is still in progress and not totally tested.
 
-## requirements
+## Requirements
 **yarDBird** requires php mongodb driver and mongodb/mongodb library if you want to connect to MongoDB.
 * pecl install mongodb
 * composer install mongodb/mongodb
 
-### initialization
+### Initialization
+Creating a connection
+
 ```php
 <?php
 use Swolley\YardBird\Connection;
@@ -39,6 +41,8 @@ $conn->sql(/*...*/);
 
 ```
 ### Basic Usage
+Main apis for crud operations
+
 ```php
 /**
 * with sql drivers this is a very simple and limited SELECT query builder whit list of fields and AND-separated where clauses
@@ -129,6 +133,8 @@ $conn->procedure($name, $inParams = [], $outParams = [], $fetchMode = Connection
 $conn->sql($query, $params = [], $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, $fetchPropsLateParams = []);
 ```
 ### Connection pool
+Pools can organize all connections in a single object
+
 ```php
 <?php
 use Swolley\YardBird\Pool;

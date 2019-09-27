@@ -51,4 +51,9 @@ class Utils
 	{
 		return md5(serialize($data));
 	}
+
+	public static function toCamelCase(string $string): string
+	{
+		return preg_replace('/_/g', '', ucwords(preg_replace("/-|_|\s/g", '_', $string, '_')));
+	}
 }

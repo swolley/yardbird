@@ -199,7 +199,7 @@ class MySqliExtended extends \mysqli implements IRelationalConnectable
 			$columns[$table] = array_map(function ($column) {
 				$column_name = $column['Field'];
 				$column_data = [ 
-					'type' => mb_strpos($column['Type'], 'char') !== false || mb_strpos($column['Type'], 'text') !== false ? 'string' : preg_replace("/int|year|month/", 'integer', preg_replace("/\(|\)|\\d|unsigned|big|small|tiny|\\s/i", '', strtolower($column['Type']))),
+					'type' => strtolower($column['Type']),
 					'nullable' => $column['Null'] === 'YES',
 					'default' => $column['Default']
 				];

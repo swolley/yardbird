@@ -313,7 +313,8 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 		$columns = [];
 		foreach ($tables as $table) {
 			$cur = $this->sql(str_replace('###name###', $table, $query));
-			$columns[$table] = array_map(function ($column) use($driver) {
+			$columns[$table] = [];
+			foreach($cur as $column) {
 				$column_name = null;
 				$column_data = null;
 
@@ -321,7 +322,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 					case 'mysql':
 						$column_name = $column['Field'];
 						$column_data = [ 
-							'type' => mb_strpos($column['Type'], 'char') !== false || mb_strpos($column['Type'], 'text') !== false ? 'string' : preg_replace("/int|year|month/", 'integer', preg_replace("/\(|\)|\\d|unsigned|big|small|tiny|\\s/i", '', strtolower($column['Type']))),
+							'type' => strtolower($column['Type']),
 							'nullable' => $column['Null'] === 'YES',
 							'default' => $column['Default']
 						];
@@ -329,7 +330,7 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 					case 'oci':
 						$column_name = $column['COLUMN_NAME'];
 						$column_data = [ 
-							'type' => $column['DATA_TYPE'] === 'NUMBER' ? ($column['DATA_SCALE'] > 0 ? 'float' : 'integer') : (mb_strpos($column['DATA_TYPE'], 'CHAR') !== false ? 'string' : strtolower($column['DATA_TYPE'])),
+							'type' => strtolower($column['DATA_TYPE']),
 							'nullable' => $column['NULLABLE'] === 'Y',
 							'default' => $column['DATA_DEFAULT']
 						];
@@ -337,12 +338,12 @@ class PDOExtended extends \PDO implements IRelationalConnectable
 
 				if(!isset($column_name, $column_data)) throw new \Exception('Requested driver still not supported');
 
-				return [$column_name => $column_data];
-			}, $cur);
+				$columns[$table][$column_name] = $column_data;
+			}
 		}
 
 		$found_tables = count($columns);
-		return $found_tables > 1 || $found_tables === 0 ? $columns : $columns[0];
+		return $found_tables > 1 || $found_tables === 0 ? $columns : array_pop($columns);
 	}
 
 	public static function fetch($sth, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
