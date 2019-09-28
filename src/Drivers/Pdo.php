@@ -37,15 +37,23 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 	public static function validateConnectionParams(array $params): array
 	{
-		if (!in_array($params['driver'], self::getAvailableDrivers())) throw new UnexpectedValueException("No {$params['driver']} driver available");
-
-		if (!isset($params['host'], $params['user'], $params['password'])) {
+		if (!in_array($params['driver'], self::getAvailableDrivers())) {
+			throw new UnexpectedValueException("No {$params['driver']} driver available");
+		}elseif (!isset($params['host'], $params['user'], $params['password'])) {
 			throw new BadMethodCallException("host, user, password are required");
 		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
 			throw new UnexpectedValueException("host, user, password can't be empty");
+		}elseif ($params['driver'] !== 'oci') {
+			if (!isset($params['dbName'])) {
+				throw new BadMethodCallException("dbName is required");
+			} elseif (empty($params['dbName'])) {
+				throw new UnexpectedValueException("dbName can't be empty");
+			}
+		} elseif ((!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
+			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
 
-		//default ports
+		//defaults
 		if (!isset($params['port'])) {
 			switch ($params['driver']) {
 				case 'mysql':
@@ -59,21 +67,8 @@ class Pdo extends \PDO implements IRelationalConnectable
 					$params['port'] = 1521;
 			}
 		}
-
-		//default charset
 		if (!isset($params['charset'])) {
 			$params['charset'] = 'UTF8';
-		}
-
-		/////////////////////////////////////////////////////////////
-		if ($params['driver'] !== 'oci') {
-			if (!isset($params['dbName'])) {
-				throw new BadMethodCallException("dbName is required");
-			} elseif (empty($params['dbName'])) {
-				throw new UnexpectedValueException("dbName can't be empty");
-			}
-		} elseif ((!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
-			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
 
 		return $params;
@@ -81,20 +76,19 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
-		$params = Utils::castToArray($params);
 		$query = Utils::trimQueryString($query);
+		$params = (array)$params;
+		//if postgres && has a different meaning than OR
 		if ($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
-			//because in postgres && has a different meaning than OR
 			$query = QueryBuilder::operatorsToStandardSyntax($query);
 		}
-
-		//TODO add the function developed for mysqli
 
 		try {
 			//ksort($params);
 			$sth = $this->prepare($query);
-			if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-			if (!$sth->execute()) {
+			if (!self::bindParams($params, $sth)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
@@ -109,9 +103,9 @@ class Pdo extends \PDO implements IRelationalConnectable
 	{
 		try {
 			$sth = $this->prepare('SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
-
-			if (!empty($where) && !self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-			if (!$sth->execute()) {
+			if (!empty($where) && !self::bindParams($where, $sth)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
@@ -124,7 +118,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		try {
 			$keys_list = array_keys($params);
 			$keys = '`' . implode('`, `', $keys_list) . '`';
@@ -141,9 +135,11 @@ class Pdo extends \PDO implements IRelationalConnectable
 					break;
 			}
 
-			if ($sth === null) throw new \Exception('Requested driver still not supported');
-			if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-			if (!$sth->execute()) {
+			if ($sth === null) {
+				throw new \Exception('Requested driver still not supported');
+			}elseif (!self::bindParams($params, $sth)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
@@ -161,20 +157,22 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 	public function update(string $table, $params, $where = null): bool
 	{
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		if ($where !== null && !is_string($where)) {
 			throw new UnexpectedValueException('$where param must be of type string');
 		} elseif ($where !== null && $this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
-				//because in postgres && has a different meaning than OR
-				$where = QueryBuilder::operatorsToStandardSyntax($where);
+			//in postgres && has a different meaning than OR
+			$where = QueryBuilder::operatorsToStandardSyntax($where);
 		}
+
 		//TODO how to bind where clause?
+		
 		try {
 			$values = QueryBuilder::valuesListToSql($params);
 			$sth = $this->prepare("UPDATE `$table` SET $values" . ($where !== null ? " WHERE $where" : ''));
-
-			if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-			if (!$sth->execute()) {
+			if (!self::bindParams($params, $sth)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
@@ -189,17 +187,16 @@ class Pdo extends \PDO implements IRelationalConnectable
 	{
 		if ($where !== null && !is_string($where)) {
 			throw new UnexpectedValueException('$where param must be of type string');
-		} elseif ($where !== null) {
-			if ($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
-				//because in postgres && has a different meaning than OR
-				$where = QueryBuilder::operatorsToStandardSyntax($where);
-			}
+		} elseif ($where !== null && $this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
+			//in postgres && has a different meaning than OR
+			$where = QueryBuilder::operatorsToStandardSyntax($where);
 		}
 
 		try {
 			$sth = $this->prepare("DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
-			if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-			if (!$sth->execute()) {
+			if (!self::bindParams($params, $sth)) {
+				throw new UnexpectedValueException('Cannot bind parameters');
+			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
@@ -213,14 +210,12 @@ class Pdo extends \PDO implements IRelationalConnectable
 	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
-			//input params
-			$procedure_in_params = '';
-			foreach (array_keys($inParams) as $key) {
-				$procedure_in_params .= ":$key, ";
-			}
-			$procedure_in_params = rtrim($procedure_in_params, ', ');
-			//output params
-			$procedure_out_params = rtrim(array_reduce($outParams, function ($total, $value) { return $total .= ":$value, "; }, ''), ', ');
+			$procedure_in_params = rtrim(array_reduce($inParams, function ($sum, $key) {
+				return $sum .= ":$key, ";
+			}, ''), ', ');
+			$procedure_out_params = rtrim(array_reduce($outParams, function ($sum, $value) {
+				return $sum .= ":$value, ";
+			}, ''), ', ');
 
 			$parameters_string = $procedure_in_params . (mb_strlen($procedure_in_params) > 0 && mb_strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
 			$procedure_string = null;
@@ -238,9 +233,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 			}
 
 			if ($procedure_string === null) throw new \Exception('Requested driver still not supported');
-
 			$sth = $this->prepare(str_replace(['###name###', '###params###'], [$name, $parameters_string], $procedure_string));
-
 			if (!self::bindParams($inParams, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 
 			$outResult = [];
@@ -337,7 +330,6 @@ class Pdo extends \PDO implements IRelationalConnectable
 				}
 
 				if(!isset($column_name, $column_data)) throw new \Exception('Requested driver still not supported');
-
 				$columns[$table][$column_name] = $column_data;
 			}
 		}
@@ -348,13 +340,9 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 	public static function fetch($sth, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		if (($fetchMode === Connection::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & Connection::FETCH_CLASS && is_string($fetchModeParam))) {
-			return $fetchMode & Connection::FETCH_PROPS_LATE
-				? $sth->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams)
-				: $sth->fetchAll($fetchMode, $fetchModeParam);
-		}
-		
-		return $sth->fetchAll($fetchMode);
+		return ($fetchMode === Connection::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & Connection::FETCH_CLASS && is_string($fetchModeParam))
+			? $fetchMode & Connection::FETCH_PROPS_LATE ? $sth->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams) : $sth->fetchAll($fetchMode, $fetchModeParam)
+			: $sth->fetchAll($fetchMode);
 	}
 
 	public static function bindParams(array &$params, &$sth = null): bool
@@ -401,8 +389,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 	private static function getOciString(array $params): string
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
-		if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
-		
+		if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");	
 		$connect_data_value = $params[$connect_data_name];
 		$tns = mb_ereg_replace("/\n\r|\n|\r|\n\r|\t|\s/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))) (CONNECT_DATA = (" . strtoupper(mb_ereg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
 		return "oci:dbname={$tns};charset={$params['charset']}";

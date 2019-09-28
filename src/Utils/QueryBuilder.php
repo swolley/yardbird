@@ -199,9 +199,9 @@ class QueryBuilder
 	public function sqlSelectToMongo(string $query, array $params = []): object
 	{
 		// TODO not handled yet
-		// SELECT COUNT(*y) FROM users	$db->users->count();
+		// SELECT COUNT(*y) FROM users					$db->users->count();
 		// SELECT COUNT(*y) FROM users where AGE > 30	$db->users->find(array("age" => array('$gt' => 30)))->count();
-		// SELECT COUNT(AGE) from users	$db->users->find(array("age" => array('$exists' => true)))->count();
+		// SELECT COUNT(AGE) from users					s$db->users->find(array("age" => array('$exists' => true)))->count();
 
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
@@ -232,7 +232,7 @@ class QueryBuilder
 			if(isset($splitted[1])) {
 				$rename_aliases[$splitted[0]] = $splitted[1];
 			}
-		};
+		}
 		if (count($projection) === 1 && key($projection) === '*') {
 			$projection = [];
 		} elseif(!$is_unique_id) {

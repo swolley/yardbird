@@ -56,7 +56,7 @@ class Mongo extends MongoDB implements IConnectable
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		$query = (new QueryBuilder)->sqlToMongo($query, $params);
 		switch ($query->type) {
 			case 'command':
@@ -72,6 +72,8 @@ class Mongo extends MongoDB implements IConnectable
 			case 'procedure':
 				return $this->procedure($query->table, $query->params);
 		}
+
+		throw new UnexpectedValueException('Unrecognized query');
 	}
 
 	public function command(array $options = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
@@ -119,7 +121,7 @@ class Mongo extends MongoDB implements IConnectable
 
 	public function insert(string $collection, $params, bool $ignore = false)
 	{
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		try {
 			self::bindParams($params);
 			$response = $this->{$this->_dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
@@ -134,7 +136,7 @@ class Mongo extends MongoDB implements IConnectable
 		$where = $where ?? [];
 		if (!is_array($where)) throw new UnexpectedValueException('$where param must be of type array');
 
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		try {
 			self::bindParams($params);
 			self::bindParams($where);
@@ -206,9 +208,9 @@ class Mongo extends MongoDB implements IConnectable
 			}
 			
 			$value = $value instanceof Regex ? new Regex(filter_var($value->getPattern(), $varType, $options)) : filter_var($value, $varType, $options);
-			if ($value === null) return false;
-
-			if($key === '_id') {
+			if ($value === null) {
+				return false;
+			} elseif($key === '_id') {
 				$value = new ObjectID($value); 
 			}
 		}

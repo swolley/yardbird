@@ -49,21 +49,16 @@ class Oci implements IRelationalConnectable
 			throw new BadMethodCallException("host, user, password are required");
 		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
 			throw new UnexpectedValueException("host, user, password can't be empty");
+		}else if ((!isset($params['sid']) || empty($params['sid'])) && (!isset($params['serviceName']) || empty($params['serviceName']))) {
+			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
 
-		//default ports
+		//defaults
 		if (!isset($params['port'])) {
 			$params['port'] = 1521;
 		}
-
-		//default charset
 		if (!isset($params['charset'])) {
 			$params['charset'] = 'UTF8';
-		}
-
-		/////////////////////////////////////////////////////////////
-		if ((!isset($params['sid']) || empty($params['sid'])) && (!isset($params['serviceName']) || empty($params['serviceName']))) {
-			throw new BadMethodCallException("sid or serviceName must be specified");
 		}
 
 		return $params;
@@ -72,46 +67,45 @@ class Oci implements IRelationalConnectable
 	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
 		$query = Utils::trimQueryString($query);
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		//TODO add the function developed for mysqli
-		$sth = oci_parse($this->_db, $query);
-		
-		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-		if (!oci_execute($sth)) {
+		$sth = oci_parse($this->_db, $query);		
+		if(!self::bindParams($params, $sth)) {
+			throw new UnexpectedValueException('Cannot bind parameters');
+		} elseif (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);
 		}
 
 		$response = mb_ereg_match('/^update|^insert|^delete/i', $query) === 1 ?: self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($sth);
-		
 		return $response;
 	}
 
 	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		$sth = oci_parse($this->_db, 'SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
-
-		if(!empty($where) && !self::bindParams($where, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-		if (!oci_execute($sth)) {
+		if(!empty($where) && !self::bindParams($where, $sth)) {
+			throw new UnexpectedValueException('Cannot bind parameters');
+		} elseif (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);
 		}
 
 		$response = self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($sth);
-
 		return $response;
 	}
 
 	public function insert(string $table, $params, bool $ignore = false)
 	{
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
 		$sth = oci_parse($this->_db, "BEGIN INSERT INTO `$table` ($keys) VALUES ($values)" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END; RETURNING RowId INTO :last_inserted_id');
 		
 		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
+		
 		$inserted_id = null;
 		self:: bindOutParams($sth, ":last_inserted_id", $inserted_id);
 		if (!oci_execute($sth)) {
@@ -126,28 +120,26 @@ class Oci implements IRelationalConnectable
 		}
 
 		oci_free_statement($sth);
-		
 		return $inserted_id;
 	}
 
 	public function update(string $table, $params, $where = null): bool
 	{
-		$params = Utils::castToArray($params);
+		$params = (array)$params;
 		
 		if($where !== null && !is_string($where)) throw new UnexpectedValueException('$where param must be of type string');
 		//TODO how to bind where clause?
 		$values = QueryBuilder::valuesListToSql($params);
 		
 		$sth = oci_parse($this->_db, "UPDATE `{$table}` SET {$values}" . ($where !== null ? " WHERE {$where}" : ''));
-		
-		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-		if (!oci_execute($sth)) {
+		if(!self::bindParams($params, $sth)) {
+			throw new UnexpectedValueException('Cannot bind parameters');
+		} elseif (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);
 		}
 
 		oci_free_statement($sth);
-		
 		return true;
 	}
 
@@ -156,33 +148,25 @@ class Oci implements IRelationalConnectable
 		if($where !== null && !is_string($where)) throw new UnexpectedValueException('$where param must be of type string');
 
 		$sth = oci_parse($this->_db, "DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
-		
-		if(!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-		if (!oci_execute($sth)) {
+		if(!self::bindParams($params, $sth)) {
+			throw new UnexpectedValueException('Cannot bind parameters');
+		} elseif (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);
 		}
 
 		oci_free_statement($sth);
-		
 		return true;
 	}
 
 	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		//input params
-		$procedure_in_params = '';
-		foreach ($inParams as $key => $value) {
-			$procedure_in_params .= ":$key, ";
-		}
-		$procedure_in_params = rtrim($procedure_in_params, ', ');
-
-		//output params
-		$procedure_out_params = '';
-		foreach ($outParams as $value) {
-			$procedure_out_params .= ":$value, ";
-		}
-		$procedure_out_params = rtrim($procedure_out_params, ', ');
+		$procedure_in_params = rtrim(array_reduce($inParams, function ($sum, $key) {
+			return $sum .= ":$key, ";
+		}, ''), ', ');
+		$procedure_out_params = rtrim(array_reduce($outParams, function ($sum, $value) {
+			return $sum .= ":$value, ";
+		}, ''), ', ');
 
 		$sth = oci_parse(
 			$this->_db,
@@ -196,7 +180,7 @@ class Oci implements IRelationalConnectable
 		if(!self::bindParams($inParams, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
 
 		$outResult = [];
-		self::bindOutParams($sth, $outParams, $outResult[$value]);
+		self::bindOutParams($sth, $outParams, $outResult);
 		if (!oci_execute($sth)) {
 			$error = oci_error($sth);
 			throw new QueryException($error['message'], $error['code']);
@@ -206,7 +190,6 @@ class Oci implements IRelationalConnectable
 
 		$response = self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($sth);
-
 		return $response;
 	}
 
@@ -283,15 +266,11 @@ class Oci implements IRelationalConnectable
 		if (is_array($params) && is_array($outResult)) {
 			foreach ($params as $value) {
 				$outResult[$value] = null;
-				if (!oci_bind_by_name($sth, ":$value", $outResult[$value], $maxLength)) {
-					throw new UnexpectedValueException('Cannot bind parameter value');
-				}
+				if (!oci_bind_by_name($sth, ":$value", $outResult[$value], $maxLength)) throw new UnexpectedValueException('Cannot bind parameter value');
 			}
 		} elseif (is_string($params)) {
 			$outResult = null;
-			if (!oci_bind_by_name($sth, ":$params", $outResult, $maxLength)) {
-				throw new \Exception('Cannot bind parameter value');
-			}
+			if (!oci_bind_by_name($sth, ":$params", $outResult, $maxLength)) throw new \Exception('Cannot bind parameter value');
 		} else {
 			throw new BadMethodCallException('$params and $outResult must have same type');
 		}

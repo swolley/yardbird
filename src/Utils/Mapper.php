@@ -28,7 +28,6 @@ class Mapper
 	public static function mapTables($tables, bool $prettyNames = false, string $classPath = null): void
 	{
 		$tables = is_string($tables) ? [$tables] : $tables;
-
 		foreach ($tables as $table => $fields) {
 			$class_name = $prettyNames ? Utils::toCamelCase($table) : $table;
 			$class_code = '';
@@ -96,10 +95,10 @@ class Mapper
 
 		$idxs = array_keys($rul);
 		foreach($idxs as $idx) {
-			if(empty($rul[$idx])) continue;
-
-			//multiple validation concatenation
-			if(!empty($ret[1])) {
+			if(empty($rul[$idx])) {
+				continue;
+			} elseif(!empty($ret[1])) {
+				//multiple validation concatenation
 				$ret[1] .= ' && ';
 			}
 

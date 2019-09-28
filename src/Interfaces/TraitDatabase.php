@@ -20,6 +20,11 @@ trait TraitDatabase
 	protected $_hash = '';
 	protected $_debugMode = false;
 
+	/**
+	 * sets connection info
+	 * @param	array	$connectionParams	parameters used to open connection
+	 * @param	bool	$debugMode			debug mode
+	 */
 	protected function setInfo(array $connectionParams, bool $debugMode)
 	{
 		switch($connectionParams['driver']) {
@@ -44,6 +49,9 @@ trait TraitDatabase
 		$this->_hash = Utils::hash($connectionParams);
 	}
 
+	/**
+	 * returns main infos about current connection
+	 */
 	public function getInfo(): array
 	{
 		return [ 'driver' => $this->getType(), 'host' => $this->getHost(), 'dbName' => $this->getDbName() ];
