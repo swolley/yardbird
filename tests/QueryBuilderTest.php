@@ -25,7 +25,6 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals([], $query->filter);
 		$this->assertEquals(['projection' => ['id' => 1, '_id' => 0]], $query->options);
-		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('INSERT INTO table(a, b) VALUES(:a, :b)', ['a' => 1, 'b' => 2]);
 		$this->assertTrue(is_object($query));
@@ -33,7 +32,6 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
 		$this->assertTrue(empty($query->options));
-		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('UPDATE table SET a=:a, b=:b', ['a' => 1, 'b' => 2]);
 		$this->assertTrue(is_object($query));
@@ -41,7 +39,6 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
 		$this->assertTrue(empty($query->options));
-		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('DELETE FROM table');
 		$this->assertTrue(is_object($query));
@@ -49,7 +46,6 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals([], $query->params);
 		$this->assertTrue(empty($query->options));
-		unset($query);
 
 		$query = $queryBuilder->sqlToMongo('CALL procedure()');
 		$this->assertTrue(is_object($query));
@@ -57,7 +53,6 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals('procedure', $query->name);
 		$this->assertEquals([], $query->params);
 		$this->assertTrue(empty($query->options));
-		unset($query);
 	}
 
 	public function test_sqlInsertToMongo_should_throw_exception_if_any_syntax_error(): void
