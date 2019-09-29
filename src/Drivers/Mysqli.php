@@ -59,10 +59,11 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 
 	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
 	{
+		$builder = new QueryBuilder;
 		$query = Utils::trimQueryString($query);
-		$query = QueryBuilder::operatorsToStandardSyntax($query);
+		$query = $builder->operatorsToStandardSyntax($query);
 		$params = (array)$params;
-		QueryBuilder::colonsToQuestionMarksPlaceholders($query, $params);
+		$builder->colonsToQuestionMarksPlaceholders($query, $params);
 
 		$sth = $this->prepare($query);
 		if (!$sth) {
@@ -80,7 +81,8 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 
 	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$sth = $this->prepare('SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where, true) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
+		$builder = new QueryBuilder;
+		$sth = $this->prepare('SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where, true) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
 		if (!$sth) {
 			throw new QueryException("Cannot prepare query. Check the syntax.");
 		} elseif (!empty($where) && !self::bindParams($where, $sth)) {
@@ -114,12 +116,13 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 
 	public function update(string $table, $params, $where = null): bool
 	{
+		$builder = new QueryBuilder;
 		$params = (array)$params;
-		$where = QueryBuilder::operatorsToStandardSyntax($where);
+		$where = $builder->operatorsToStandardSyntax($where);
 		//TODO how to bind where clause?
-		$values = QueryBuilder::valuesListToSql($params);
+		$values = $builder->valuesListToSql($params);
 		if ($where !== null) {
-			QueryBuilder::colonsToQuestionMarksPlaceholders($where, $params);
+			$builder->colonsToQuestionMarksPlaceholders($where, $params);
 			$where = " WHERE {$where}";
 		} else {
 			$where = '';
@@ -140,8 +143,9 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 	public function delete(string $table, $where = null, array $params = null): bool
 	{
 		if ($where !== null) {
-			$where = QueryBuilder::operatorsToStandardSyntax($where);
-			QueryBuilder::colonsToQuestionMarksPlaceholders($where, $params);
+			$builder = new QueryBuilder;
+			$where = $builder->operatorsToStandardSyntax($where);
+			$builder->colonsToQuestionMarksPlaceholders($where, $params);
 		}
 
 		$sth = $this->prepare("DELETE FROM {$table} {$where}");

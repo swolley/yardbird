@@ -677,15 +677,27 @@ class QueryBuilder
 
 	/**
 	 * composes where portion of the query
-	 * @param	array	$where						where parameters
+	 * @param	array	$where					where parameters as [column => value] or [column => [value, operator]]
 	 * @param	boolean	$questionPlaceholders	use question marks instead of named placeholders
 	 * @return	string	query portion
 	 */
 	public static function whereToSql($where, bool $questionPlaceholders = false): string
 	{
 		$stringed_where = '';
-		foreach (array_keys($where) as $key) {
-			$stringed_where .= "`$key`=" . ($questionPlaceholders ? '?' : ":{$key}") . " AND ";
+		$keys = array_keys($where);
+		$operators = [];
+		foreach($where as $value) {
+			$operator = '=';
+			if(is_array($value)) {
+				if(count($value) !== 2) throw new UnexpectedValueException('Unexpected value in where clause');
+				$operator = $value[1];
+			}
+
+			$operators[] = $operator;
+		}
+
+		for ($idx = 0; $idx < count($keys); $idx++) {
+			$stringed_where .= "`{$keys['idx']}` {$operators['idx']} " . ($questionPlaceholders ? '?' : ":{$keys['idx']}") . " AND ";
 		}
 		$stringed_where = rtrim($stringed_where, 'AND ');
 		if(!empty($stringed_where)) {

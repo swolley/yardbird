@@ -102,7 +102,8 @@ class Pdo extends \PDO implements IRelationalConnectable
 	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
 		try {
-			$sth = $this->prepare('SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
+			$builder = new QueryBuilder;
+			$sth = $this->prepare('SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
 			if (!empty($where) && !self::bindParams($where, $sth)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
@@ -157,18 +158,19 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 	public function update(string $table, $params, $where = null): bool
 	{
+		$builder = new QueryBuilder;
 		$params = (array)$params;
 		if ($where !== null && !is_string($where)) {
 			throw new UnexpectedValueException('$where param must be of type string');
 		} elseif ($where !== null && $this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
 			//in postgres && has a different meaning than OR
-			$where = QueryBuilder::operatorsToStandardSyntax($where);
+			$where = $builder->operatorsToStandardSyntax($where);
 		}
 
 		//TODO how to bind where clause?
 		
 		try {
-			$values = QueryBuilder::valuesListToSql($params);
+			$values = $builder->valuesListToSql($params);
 			$sth = $this->prepare("UPDATE `$table` SET $values" . ($where !== null ? " WHERE $where" : ''));
 			if (!self::bindParams($params, $sth)) {
 				throw new UnexpectedValueException('Cannot bind parameters');

@@ -84,7 +84,8 @@ class Oci implements IRelationalConnectable
 
 	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
 	{
-		$sth = oci_parse($this->_db, 'SELECT ' . QueryBuilder::fieldsToSql($fields) . " FROM `$table` " . QueryBuilder::joinsToSql($join) . ' ' . QueryBuilder::whereToSql($where) . ' ' . QueryBuilder::orderByToSql($orderBy) . ' ' . QueryBuilder::limitToSql($limit));
+		$builder = new QueryBuilder;
+		$sth = oci_parse($this->_db, 'SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
 		if(!empty($where) && !self::bindParams($where, $sth)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
 		} elseif (!oci_execute($sth)) {
