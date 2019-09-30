@@ -28,11 +28,11 @@ class Utils
 
 	public static function toCamelCase(string $string): string
 	{
-		return str_replace("_", '', ucwords(preg_replace("/-|\s/", '_', $string), '_'));
+		return $string !== null ? str_replace("_", '', ucwords(preg_replace("/-|\s/", '_', $string), '_')) : '';
 	}
 
 	public static function toPascalCase(string $string): string 
 	{
-		return lcfirst(self::toCamelCase($string));
+		return $string !== null ? lcfirst(self::toCamelCase($string)) : '';
 	}
 }

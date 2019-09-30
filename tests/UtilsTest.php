@@ -13,8 +13,8 @@ final class UtilsTest extends TestCase
 	public function test_trimQueryString_should_return_replaced_string(): void
 	{
 		$query = <<<EOT
-		string
-		withouth
+		string 
+		withouth 
 		cr
 		EOT;
 		$this->assertEquals('string withouth cr', Utils::trimQueryString($query));

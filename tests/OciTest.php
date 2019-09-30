@@ -9,52 +9,60 @@ use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Interfaces\IRelationalConnectable;
 
+/**
+ * @covers Swolley\YardBird\Drivers\Oci
+ */
 final class OciTest extends TestCase
 {
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
+	/**
+     * @codeCoverageIgnore
+	 * @group unit
+     */
 	public function test_Oci_should_implements_IRelationalConnectable(): void
 	{
 		$reflection = new \ReflectionClass(Oci::class);
 		$this->assertTrue($reflection->implementsInterface(IRelationalConnectable::class));
 	}
 
-	public function test_validateConnectionParams_should_return_exception_if_no_valid_parameters_passed(): void
+	/**
+	 * @covers Swolley\YardBird\Drivers\Oci::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_exception_if_missing_or_empty_parameters_passed(): void
     {
 		$this->expectException(BadMethodCallException::class);
-		new Oci([
-			'host' => '',
-			'user' => null,
-			'password' => null,
-			'sid' => null
-
-		]);
+		new Oci([ 'host' => '', 'user' => null, 'password' => null ]);
 	}
 
-	public function test_validateConnectionParams_should_return_exception_if_missing_parameters(): void
+	/**
+	 * @covers Swolley\YardBird\Drivers\Oci::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_array_if_correct_params(): array
     {
-		$this->expectException(BadMethodCallException::class);
-		new Oci([
-			'host' => 'localhost'
-		]);
-	}
-
-	public function test_composeConnectionParams_should_throw_exception_if_no_sid_and_no_service_name(): void
-	{
-		$params = ['host' => 'host', 'port' => 'port', 'dbName' => 'dbName', 'charset' => 'charset', 'user' => 'username', 'password' => 'userpassword'];
-		$this->expectException(BadMethodCallException::class);
 		$reflection = new \ReflectionClass(Oci::class);
-		$method = $reflection->getMethod('composeConnectionParams');
+		$method = $reflection->getMethod('validateConnectionParams');
 		$method->setAccessible(true);
+		$result = $method->invokeArgs($reflection, [[ 'driver' => 'oci', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'sid' => 'sid', 'dbName' => 'name' ]]);
+		$expected = [ 'driver' => 'oci', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'sid' => 'sid', 'port' => 1521, 'charset' => 'UTF8', 'dbName' => 'name' ];
+		$this->assertEquals($result, $expected);
 
-		$method->invokeArgs($reflection, [$params]);
+		return $result;
 	}
 
-	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
+	/**
+	 * @covers Swolley\YardBird\Drivers\Oci::__construct
+	 * @depends test_validateConnectionParams_should_return_array_if_correct_params
+	 * @group unit
+	 */
+	public function test_constructor_should_throw_exception_if_cant_establish_connection($params): void
 	{
 		$this->expectException(ConnectionException::class);
-		$params = ['host' => 'localhost', 'port' => 3306, 'charset' => 'UTF8', 'user' => 'invalid', 'password' => 'invalid', 'sid' => 'invalid'];
 		new Oci($params);
 	}
+
+	///////////////////////////////// INTEGRATION ////////////////////////////////////////////////
 
 	/*public function test_sql_should_throw_exception_if_parameters_not_binded(): void
 	{
@@ -194,7 +202,5 @@ final class OciTest extends TestCase
 			->will($this->throwException(new QueryException));
 
 		$dbMock->procedure('table', ['name' => 'value' ]);
-	}*/
-	///////////////////////////////// INTEGRATION ////////////////////////////////////////////////
-	
+	}*/	
 }

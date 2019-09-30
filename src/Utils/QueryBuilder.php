@@ -156,16 +156,18 @@ class QueryBuilder
 		array_shift($query);
 
 		//list of columns'names
-		$keys_list = preg_split('/,\s?/', array_shift($query));
+		$keys_list = preg_split('/,\s?|(WHERE)/i', array_shift($query), null, PREG_SPLIT_DELIM_CAPTURE);
 		if (count($keys_list) === 0) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 
 		$parsed_params = [];
+		//TODO farlo diventare un for e fare unset man mano che si usano i $value, così quando è valido il break vuol dire che c'è il where, altirmenti è finito l'array
 		foreach ($keys_list as $value) {
+			if(preg_match('/WHERE/i', $value) === 1) break;
 			$exploded = explode('=', preg_replace('/`|\s/', '', $value));
 			$key = ltrim($exploded[1], ':');
 			$parsed_params[$exploded[0]] = array_key_exists($key, $params) ? $params[$key] : self::castValue($key);
 		}
-		unset($keys_list);
+		//unset($keys_list);
 
 		//checks for where clauses
 		$final_nested = [];
@@ -281,7 +283,7 @@ class QueryBuilder
 		$order_fields = [];
 		if (count($query) > 0 && preg_match('/order by/i', $query[0]) === 1) {
 			array_shift($query);
-			$splitted = preg_split('/,\s?/', trim(array_shift($query)));
+			$splitted = preg_split('/,\s?/', preg_replace('/\s|`/', '', (array_shift($query))));
 			foreach($splitted as $element) {
 				$key_order = preg_split('/\s/', $element);
 				$order_fields[$key_order[0]] = isset($key_order[1]) && strtolower($key_order[1]) === 'desc' ? -1 : 1;

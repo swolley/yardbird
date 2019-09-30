@@ -7,15 +7,24 @@ use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 
+/**
+ * @covers Swolley\YardBird\Utils\QueryBuilder
+ */
 final class QueryBuilderTest extends TestCase
 {
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlToMongo
+	 */
 	public function test_sqlToMongo_should_return_exception_if_not_recognized_a_valid_query(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
 		(new QueryBuilder)->sqlToMongo('invalid query');
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlToMongo
+	 */
 	public function test_sqlToMongo_should_return_object_if_parameters_are_correct(): void
 	{
 		$queryBuilder = new QueryBuilder();
@@ -55,6 +64,9 @@ final class QueryBuilderTest extends TestCase
 		$this->assertTrue(empty($query->options));
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlInsertToMongo
+	 */
 	public function test_sqlInsertToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$queryBuilder = new QueryBuilder();
@@ -65,12 +77,18 @@ final class QueryBuilderTest extends TestCase
 		$queryBuilder->sqlToMongo('INSERT INTO table');
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlInsertToMongo
+	 */
 	public function test_sqlInsertToMongo_should_throw_exception_if_columns_count_differs_from_values(): void
 	{
 		$this->expectException(\Exception::class);
 		(new QueryBuilder)->sqlInsertToMongo('INSERT INTO table (`column1`, `missingColumn`) VALUES(:column)');
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlInsertToMongo
+	 */
 	public function test_sqlInsertToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
 		$query = (new QueryBuilder)->sqlInsertToMongo('INSERT IGNORE INTO table (`column1`) VALUES(:column)');
@@ -83,12 +101,18 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlDeleteToMongo
+	 */
 	public function test_sqlDeleteToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
 		(new QueryBuilder)->sqlDeleteToMongo('DELETE FROM table WHERE');
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlDeleteToMongo
+	 */
 	public function test_sqlDeleteToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
 		$query = (new QueryBuilder)->sqlDeleteToMongo('DELETE FROM `table` WHERE (id<1 AND c<>2)');
@@ -100,15 +124,21 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlUpdateToMongo
+	 */
 	public function test_sqlUpdateToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
 		(new QueryBuilder)->sqlUpdateToMongo("UPDATE WHERE `column` != 'value'");
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlUpdateToMongo
+	 */
 	public function test_sqlUpdateToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET id='value'");
+		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET `id`='value'");
 		$response = (object)[
 			'type' => 'update',
 			'table' => 'table',
@@ -116,17 +146,33 @@ final class QueryBuilderTest extends TestCase
 			'where' => []
 		];
 		$this->assertEquals($response, $query);
+
+		//FIXME il where è sbagliato
+		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET `id`='value' WHERE `id`='tochange'");
+		$response = (object)[
+			'type' => 'update',
+			'table' => 'table',
+			'params' => ['id' => 'value'],
+			'where' => ['id' => 'tochange']
+		];
+		$this->assertEquals($response, $query);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlSelectToMongo
+	 */
 	public function test_sqlSelectToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
 		(new QueryBuilder)->sqlSelectToMongo("SELECT INTO `table` WHERE `column` > 'value'");
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlSelectToMongo
+	 */
 	public function test_sqlSelectToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT * FROM `table`");
+		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT * FROM `table` ORDER BY `column`");
 		$response = (object)[
 			'type' => 'select',
 			'table' => 'table',
@@ -136,7 +182,7 @@ final class QueryBuilderTest extends TestCase
 			],
 			'aggregate' => [],
 			'limit' => null,
-			'orderBy' => []
+			'orderBy' => [ 'column' => 1 ]
 		];
 		$this->assertEquals($response, $query);
 
@@ -156,12 +202,18 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlProcedureToMongo
+	 */
 	public function test_sqlProcedureToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
 		$this->expectException(BadMethodCallException::class);
 		(new QueryBuilder)->sqlProcedureToMongo("CALL procedure_name (:value1, :value2)");
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlProcedureToMongo
+	 */
 	public function test_sqlProcedureToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
 		$query = (new QueryBuilder)->sqlProcedureToMongo("CALL procedure_name ()", []);
@@ -173,6 +225,9 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $query);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::parseOperators
+	 */
 	public function test_parseOperators_should_throw_exception_if_no_valid_operator_found(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
@@ -183,6 +238,9 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->parseOperators($query, $params, $idx, $nested_level);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::parseOperators
+	 */
 	public function test_parseOperators_should_return_array_if_parameters_are_correct(): void
 	{
 		$query = ["a=1", "b>'value'", 'id=:id'];
@@ -192,6 +250,9 @@ final class QueryBuilderTest extends TestCase
 		$this->assertTrue(is_array($parsed));
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::groupLogicalOperators
+	 */
 	public function test_groupLogicalOperators_should_return_grouped_params_by_operators(): void
 	{
 		$query = [
@@ -210,6 +271,9 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $parsed);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::castValue
+	 */
 	public function test_castValue_should_return_converted_value(): void
 	{
 		$queryBuilder = new QueryBuilder();
@@ -222,6 +286,9 @@ final class QueryBuilderTest extends TestCase
 		$this->assertEquals($response, $casted);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::colonsToQuestionMarksPlaceholders
+	 */
 	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_both_colon_and_questionmark_placeholders_found(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
@@ -230,6 +297,9 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->colonsToQuestionMarksPlaceholders($query, $params);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::colonsToQuestionMarksPlaceholders
+	 */
 	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_not_same_number_of_placeholders_and_params(): void
 	{
 		$this->expectException(BadMethodCallException::class);
@@ -238,6 +308,9 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->colonsToQuestionMarksPlaceholders($query, $params);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::colonsToQuestionMarksPlaceholders
+	 */
 	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_no_corresponding_params_and_placeholders(): void
 	{
 		$this->expectException(BadMethodCallException::class);
@@ -246,6 +319,9 @@ final class QueryBuilderTest extends TestCase
 		(new QueryBuilder)->colonsToQuestionMarksPlaceholders($query, $params);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Utils\QueryBuilder::operatorsToStandardSyntax
+	 */
 	public function test_operatorsToStandardSyntax_should_return_replaced_string(): void
 	{
 		$query = 'SELECT * FROM table WHERE value1<=1&&value2>=2 || value3=3 AND value4!=4';

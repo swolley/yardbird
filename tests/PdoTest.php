@@ -9,102 +9,185 @@ use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Interfaces\IRelationalConnectable;
 
+/**
+ * @covers Swolley\YardBird\Drivers\Pdo
+ */
 final class PdoTest extends TestCase
 {
 
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
+	/**
+     * @codeCoverageIgnore
+	 * @group unit
+     */
 	public function test_Pdo_should_implements_IRelationalConnectable(): void
 	{
 		$reflection = new \ReflectionClass(Pdo::class);
 		$this->assertTrue($reflection->implementsInterface(IRelationalConnectable::class));
 	}
 
-	public function test_validateConnectionParams_should_return_exception_if_no_valid_parameters_passed(): void
-    {
-		$this->expectException(BadMethodCallException::class);
-		new Pdo([
-			'driver' => 'mysql',
-			'host' => '',
-			'user' => null,
-			'password' => null
-		]);
-	}
-
-	public function test_validateConnectionParams_should_return_exception_if_missing_parameters(): void
-    {
-		$this->expectException(BadMethodCallException::class);
-		new Pdo([
-			'driver' => 'mysql'
-		]);
-	}
-
-	public function test_validateConnectionParams_should_return_exception_if_driver_not_oci_and_dbName_empty(): void
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_exception_if_invalid_driver(): void
     {
 		$this->expectException(UnexpectedValueException::class);
-		new Pdo([
-			'driver' => 'mysql',
-			'dbName' => '',
-			'host' => '127.0.0.1',
-			'user' => 'username',
-			'password' => 'userpassword'
-		]);
+		new Pdo([ 'driver' => 'invalid' ]);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_exception_if_missing_parameters(): void
+	{
+		$this->expectException(UnexpectedValueException::class);
+		$reflection = new \ReflectionClass(Pdo::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$method->invokeArgs($reflection, [[ 'driver' => 'mysql' ]]);
+	}
+
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_exception_if_empty_values(): void
+    {
+		$this->expectException(UnexpectedValueException::class);
+		$reflection = new \ReflectionClass(Pdo::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$method->invokeArgs($reflection, [[ 'driver' => 'mysql', 'host' => '', 'user' => '', 'password' => ''	]]);
+	}
+
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_exception_if_missing_dbName_and_connection_not_oci(): void
+    {
+		$this->expectException(UnexpectedValueException::class);
+		$reflection = new \ReflectionClass(Pdo::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$method->invokeArgs($reflection, [[ 'driver' => 'mysql', 'host' => 'value', 'user' => 'value', 'password' => 'value']]);
+	}
+
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_exception_if_empty_dbName_and_connection_not_oci(): void
+    {
+		$this->expectException(UnexpectedValueException::class);
+		$reflection = new \ReflectionClass(Pdo::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$method->invokeArgs($reflection, [[ 'driver' => 'mysql', 'host' => 'value', 'user' => 'value', 'password' => 'value', 'dbName' => '']]);
+	}
+
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
 	public function test_validateConnectionParams_should_return_exception_if_driver_is_oci_and_sid_or_serviceName_not_valid(): void
     {
 		$this->expectException(UnexpectedValueException::class);
-		new Pdo([
-			'driver' => 'oci',
-			'dbName' => '',
-			'host' => '127.0.0.1',
-			'user' => 'username',
-			'password' => 'userpassword',
-			'sid' => '',
-			'serviceName' => ''
-		]);
+		$reflection = new \ReflectionClass(Pdo::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$method->invokeArgs($reflection, [[ 'driver' => 'oci', 'dbName' => '', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'sid' => '', 'serviceName' => '' ]]);
 	}
 
-	public function test_getDefaultString_should_return_correctly_parsed_string(): void
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_array_if_parameters_valid_default(): array
+    {
+		$reflection = new \ReflectionClass(Pdo::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$result = $method->invokeArgs($reflection, [[ 'driver' => 'mysql', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'dbName' => 'name' ]]);
+		$expected = [ 'driver' => 'mysql', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'dbName' => 'name', 'port' => 3306, 'charset' => 'UTF8' ];
+		$this->assertEquals($result, $expected);
+
+		return $result;
+	}
+
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_array_if_parameters_valid_oci(): array
+    {
+		$reflection = new \ReflectionClass(Pdo::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$result = $method->invokeArgs($reflection, [[ 'driver' => 'oci', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'sid' => 'sid', 'dbName' => 'name' ]]);
+		$expected = [ 'driver' => 'oci', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'sid' => 'sid', 'port' => 1521, 'charset' => 'UTF8', 'dbName' => 'name' ];
+		$this->assertEquals($result, $expected);
+
+		return $result;
+	}
+
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::getDefaultString
+	 * @depends test_validateConnectionParams_should_return_array_if_parameters_valid_default
+	 * @group unit
+	 */
+	public function test_getDefaultString_should_return_correctly_parsed_string($params): void
 	{
-		$params = ['driver' => 'driver', 'host' => 'host', 'port' => 'port', 'dbName' => 'dbName', 'charset' => 'charset'];
-		$expected = "driver:host=host;port=port;dbname=dbName;charset=charset";
 		$reflection = new \ReflectionClass(Pdo::class);
 		$method = $reflection->getMethod('getDefaultString');
 		$method->setAccessible(true);
-
+		$expected = "mysql:host=127.0.0.1;port=3306;dbname=name;charset=UTF8";
 		$result = $method->invokeArgs($reflection, [$params]);
 		$this->assertEquals($expected, $result);
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::getOciString
+	 * @group unit
+	 */
 	public function test_getOciString_should_return_exception_if_both_sid_and_serviceName_not_valid(): void
 	{
 		$this->expectException(BadMethodCallException::class);
 		$reflection = new \ReflectionClass(Pdo::class);
 		$method = $reflection->getMethod('getOciString');
 		$method->setAccessible(true);
-
 		$method->invokeArgs($reflection, [['sid' => null, 'serviceName' => null]]);
 	}
-
-	public function test_getOciString_should_return_correctly_parsed_string(): void
+	
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::getOciString
+	 * @depends test_validateConnectionParams_should_return_array_if_parameters_valid_oci
+	 * @group unit
+	 */
+	public function test_getOciString_should_return_correctly_parsed_string($params): void
 	{
-		$params = ['host' => 'host', 'port' => 'port', 'sid' => 'sid', 'charset' => 'charset'];
-		$expected = "oci:dbname=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=host)(PORT=port)))(CONNECT_DATA=(SID=sid)));charset=charset";
+		$expected = "oci:dbname=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SID=sid)));charset=UTF8";
 		$reflection = new \ReflectionClass(Pdo::class);
 		$method = $reflection->getMethod('getOciString');
 		$method->setAccessible(true);
-
 		$result = $method->invokeArgs($reflection, [$params]);
 		$this->assertEquals($expected, $result);
 	}
-
-	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
+	
+	/**
+	 * @covers Swolley\YardBird\Drivers\Pdo::__construct
+	 * @depends test_validateConnectionParams_should_return_array_if_parameters_valid_default
+	 * @group unit
+	 */
+	public function test_constructor_should_throw_exception_if_cant_establish_connection($params): void
 	{
 		$this->expectException(ConnectionException::class);
-		$params = ['driver' => 'mysql', 'host' => 'localhost', 'port' => 3306, 'dbName' => 'invalid', 'charset' => 'UTF8', 'user' => 'invalid', 'password' => 'invalid'];
 		new Pdo($params);
 	}
-	
+
+	///////////////////////////////// INTEGRATION ////////////////////////////////////////////////
 	/*public function test_sql_should_throw_exception_if_parameters_not_binded(): void
 	{
 		$this->expectException(UnexpectedValueException::class);
@@ -254,6 +337,5 @@ final class PdoTest extends TestCase
 
 		$dbMock->procedure('table', ['name' => 'value' ]);
 	}*/
-	///////////////////////////////// INTEGRATION ////////////////////////////////////////////////
 	
 }

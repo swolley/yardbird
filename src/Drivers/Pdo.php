@@ -39,18 +39,10 @@ class Pdo extends \PDO implements IRelationalConnectable
 	{
 		if (!in_array($params['driver'], self::getAvailableDrivers())) {
 			throw new UnexpectedValueException("No {$params['driver']} driver available");
-		}elseif (!isset($params['host'], $params['user'], $params['password'])) {
-			throw new BadMethodCallException("host, user, password are required");
-		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
-			throw new UnexpectedValueException("host, user, password can't be empty");
-		}elseif ($params['driver'] !== 'oci') {
-			if (!isset($params['dbName'])) {
-				throw new BadMethodCallException("dbName is required");
-			} elseif (empty($params['dbName'])) {
-				throw new UnexpectedValueException("dbName can't be empty");
-			}
-		} elseif ((!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName']))) {
-			throw new BadMethodCallException("sid or serviceName must be specified");
+		}elseif (!isset($params['host'], $params['user'], $params['password'], $params['dbName']) || empty($params['dbName']) || empty($params['host']) || empty($params['user']) || empty($params['password'])) {
+			throw new UnexpectedValueException("host, user, password are required");
+		} elseif ($params['driver'] === 'oci' && ((!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName'])))) {
+			throw new UnexpectedValueException("sid or serviceName must be specified");
 		}
 
 		//defaults
@@ -67,10 +59,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 					$params['port'] = 1521;
 			}
 		}
-		if (!isset($params['charset'])) {
-			$params['charset'] = 'UTF8';
-		}
-
+		$params['charset'] = $params['charset'] ?? 'UTF8';
 		return $params;
 	}
 

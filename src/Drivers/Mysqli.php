@@ -35,24 +35,12 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 
 	public static function validateConnectionParams(array $params): array
 	{
-		if (!isset($params['host'], $params['user'], $params['password'])) {
-			throw new BadMethodCallException("host, user, password are required");
-		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
+		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName']) || empty($params['host']) || empty($params['user']) || empty($params['password']) || empty($params['dbName'])) 
 			throw new UnexpectedValueException("host, user, password can't be empty");
-		} elseif (!isset($params['dbName'])) {
-			throw new BadMethodCallException("dbName is required");
-		} elseif (empty($params['dbName'])) {
-			throw new UnexpectedValueException("dbName can't be empty");
-		}
 
 		//defaults
-		if (!isset($params['port'])) {
-			$params['port'] = 3306;
-		}
-
-		if (!isset($params['charset'])) {
-			$params['charset'] = 'UTF8';
-		}
+		$params['port'] = $params['port'] ?? 3306;
+		$params['charset'] = $params['charset'] ?? 'UTF8';
 
 		return $params;
 	}

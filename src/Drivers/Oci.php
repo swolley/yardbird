@@ -30,9 +30,7 @@ class Oci implements IRelationalConnectable
 		$this->setInfo($params, $debugMode);
 		
 		try {
-			$connect_data_name = isset($parsed_params['sid']) ? 'sid' : (isset($parsed_params['serviceName']) ? 'serviceName' : null);
-			if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
-
+			$connect_data_name = isset($parsed_params['sid']) ? 'sid' : 'serviceName';
 			$connect_data_value = $params[$connect_data_name];
 			$connection_string = preg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$parsed_params['host']})(PORT = {$parsed_params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
 			$this->_db = oci_connect(...[ $parsed_params['user'], $parsed_params['password'], $connection_string ]);
@@ -45,22 +43,12 @@ class Oci implements IRelationalConnectable
 
 	public static function validateConnectionParams(array $params): array
 	{
-		if (!isset($params['host'], $params['user'], $params['password'])) {
-			throw new BadMethodCallException("host, user, password are required");
-		} elseif (empty($params['host']) || empty($params['user']) || empty($params['password'])) {
-			throw new UnexpectedValueException("host, user, password can't be empty");
-		}else if ((!isset($params['sid']) || empty($params['sid'])) && (!isset($params['serviceName']) || empty($params['serviceName']))) {
-			throw new BadMethodCallException("sid or serviceName must be specified");
-		}
+		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName']) || empty($params['dbName']) || empty($params['host']) || empty($params['user']) || empty($params['password']) || (!isset($params['sid']) || empty($params['sid'])) && (!isset($params['serviceName']) || empty($params['serviceName']))) 
+			throw new BadMethodCallException("Empty or missing parameters");
 
 		//defaults
-		if (!isset($params['port'])) {
-			$params['port'] = 1521;
-		}
-		if (!isset($params['charset'])) {
-			$params['charset'] = 'UTF8';
-		}
-
+		$params['port'] = $params['port'] ?? 1521;
+		$params['charset'] = $params['charset'] ?? 'UTF8';
 		return $params;
 	}
 

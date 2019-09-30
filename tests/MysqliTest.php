@@ -9,38 +9,59 @@ use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Interfaces\IRelationalConnectable;
 
+/**
+ * @covers Swolley\YardBird\Drivers\Mysqli
+ */
 final class MysqliTest extends TestCase
 {
 
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
+	/**
+     * @codeCoverageIgnore
+	 * @group unit
+     */
 	public function test_Mysqli_should_implements_IRelationalConnectable(): void
 	{
 		$reflection = new \ReflectionClass(Mysqli::class);
 		$this->assertTrue($reflection->implementsInterface(IRelationalConnectable::class));
 	}
 
+	/**
+	 * @covers Swolley\YardBird\Drivers\Mysqli::validateConnectionParams
+	 * @group unit
+	 */
 	public function test_validateConnectionParams_should_return_exception_if_no_valid_parameters_passed(): void
     {
-		$this->expectException(BadMethodCallException::class);
-		new Mysqli([
-			'host' => '',
-			'user' => null,
-			'password' => null
-		]);
+		$this->expectException(UnexpectedValueException::class);
+		$reflection = new \ReflectionClass(Mysqli::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$method->invokeArgs($reflection, [[ 'driver' => 'mysqli', 'dbName' => '', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword' ]]);
 	}
 
-	public function test_validateConnectionParams_should_return_exception_if_missing_parameters(): void
+	/**
+	 * @covers Swolley\YardBird\Drivers\Mysqli::validateConnectionParams
+	 * @group unit
+	 */
+	public function test_validateConnectionParams_should_return_array_if_parameters_valid(): array
     {
-		$this->expectException(BadMethodCallException::class);
-		new Mysqli([
-			'driver' => 'mysql'
-		]);
+		$reflection = new \ReflectionClass(Mysqli::class);
+		$method = $reflection->getMethod('validateConnectionParams');
+		$method->setAccessible(true);
+		$result = $method->invokeArgs($reflection, [[ 'driver' => 'mysqli', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'dbName' => 'name' ]]);
+		$expected = [ 'driver' => 'mysqli', 'host' => '127.0.0.1', 'user' => 'username', 'password' => 'userpassword', 'dbName' => 'name', 'port' => 3306, 'charset' => 'UTF8' ];
+		$this->assertEquals($result, $expected);
+		return $result;
 	}
 
-	public function test_constructor_should_throw_exception_if_cant_establish_connection(): void
+	/**
+	 * @covers Swolley\YardBird\Drivers\Mysqli::__construct
+	 * @depends test_validateConnectionParams_should_return_array_if_parameters_valid
+	 * @group unit
+	 */
+	public function test_constructor_should_throw_exception_if_cant_establish_connection($params): void
 	{
 		$this->expectException(ConnectionException::class);
-		$params = ['host' => 'localhost', 'port' => 3306, 'dbName' => 'invalid', 'charset' => 'UTF8', 'user' => 'invalid', 'password' => 'invalid'];
 		new Mysqli($params);
 	}
 

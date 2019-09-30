@@ -46,12 +46,10 @@ class Mongo extends MongoDB implements IConnectable
 	public static function validateConnectionParams(array $params): array
 	{
 		//string $host, int $port, string $user, string $pass, string $dbName
-		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName'])) throw new BadMethodCallException("host, user, password, dbName are required");
+		if (!isset($params['host'], $params['user'], $params['password'], $params['dbName']) || empty($params['host']) || empty($params['user']) || empty($params['password']) || empty($params['dbName'])) 
+			throw new BadMethodCallException("host, user, password, dbName are required");
 		//defaults
-		if(!isset($params['port'])) {
-			$params['port'] = 27017;
-		}
-
+		$params['port'] = $params['port'] ?? 27017;
 		return $params;
 	}
 
