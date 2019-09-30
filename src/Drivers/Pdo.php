@@ -93,7 +93,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
-			return mb_ereg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->rowCount() > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			return preg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->rowCount() > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
@@ -219,7 +219,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 				return $sum .= ":$value, ";
 			}, ''), ', ');
 
-			$parameters_string = $procedure_in_params . (mb_strlen($procedure_in_params) > 0 && mb_strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
+			$parameters_string = $procedure_in_params . (strlen($procedure_in_params) > 0 && strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
 			$procedure_string = null;
 			switch ($this->getAttribute(self::ATTR_DRIVER_NAME)) {
 				case 'pgsql':
@@ -284,7 +284,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 		}, $this->sql($query));
 	}
 
-	public function showColumns($tables): array
+	public function showColumns($tables)
 	{
 		if (is_string($tables)) {
 			$tables = [$tables];
@@ -336,8 +336,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 			}
 		}
 
-		$found_tables = count($columns);
-		return $found_tables > 1 || $found_tables === 0 ? $columns : array_pop($columns);
+		return $columns;
 	}
 
 	public static function fetch($sth, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
@@ -393,7 +392,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
 		if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");	
 		$connect_data_value = $params[$connect_data_name];
-		$tns = mb_ereg_replace("/\n\r|\n|\r|\n\r|\t|\s/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))) (CONNECT_DATA = (" . strtoupper(mb_ereg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
+		$tns = preg_replace("/\n\r|\n|\r|\n\r|\t|\s/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
 		return "oci:dbname={$tns};charset={$params['charset']}";
 	}
 }

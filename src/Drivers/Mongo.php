@@ -9,6 +9,7 @@ use Swolley\YardBird\Exceptions\ConnectionException;
 use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
+use Swolley\YardBird\Exceptions\NotImplementedException;
 use Swolley\YardBird\Interfaces\TraitDatabase;
 use	MongoDB\Client as MongoDB;
 //use MongoDB\BSON as BSON;
@@ -16,6 +17,7 @@ use MongoDB\Driver\Command as MongoCmd;
 //use MongoDB\Driver\Manager as MongoManager;
 use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
+use MongoDB\Model\CollectionInfo;
 use MongoDB\BSON\Regex;
 use MongoDB\BSON\ObjectID;
 
@@ -172,6 +174,18 @@ class Mongo extends MongoDB implements IConnectable
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
+	}
+
+	function showTables(): array
+	{
+		return array_map(function (CollectionInfo $collection) {
+			return $collection->name;
+		}, $this->db->listCollections());
+	}
+
+	function showColumns($tables)
+	{
+		throw new NotImplementedException('MongoDB is schemaless and is not possible to get a unique data structure');
 	}
 
 	public static function fetch($sth, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array

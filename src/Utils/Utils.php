@@ -14,7 +14,7 @@ class Utils
 	 */
 	public static function trimQueryString(string $query): string
 	{
-		return rtrim(mb_ereg_replace('/\s\s+/', ' ', $query), ';');
+		return rtrim(preg_replace('/\s\s+/', ' ', $query), ';');
 	}
 
 	/**
@@ -28,7 +28,7 @@ class Utils
 
 	public static function toCamelCase(string $string): string
 	{
-		return mb_ereg_replace('/_/', '', ucwords(mb_ereg_replace("/-|_|\s/", '_', $string), '_'));
+		return str_replace("_", '', ucwords(preg_replace("/-|\s/", '_', $string), '_'));
 	}
 
 	public static function toPascalCase(string $string): string 

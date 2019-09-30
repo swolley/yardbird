@@ -74,7 +74,7 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		}
 
-		$result = mb_ereg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->num_rows > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		$result = preg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->num_rows > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		$sth->close();
 		return $result;
 	}
@@ -169,7 +169,7 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 		$procedure_out_params = rtrim(array_reduce($inParams, function ($sum, $value) {
 			return $sum .= ":$value, ";
 		}, ''), ', ');
-		$parameters_string = $procedure_in_params . (mb_strlen($procedure_in_params) > 0 && mb_strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
+		$parameters_string = $procedure_in_params . (strlen($procedure_in_params) > 0 && strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
 		$sth = $this->prepare("CALL $name($parameters_string);");
 
 		if (!$sth) {
@@ -193,7 +193,7 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 		}, $this->sql('SHOW TABLES'));
 	}
 
-	public function showColumns($tables): array
+	public function showColumns($tables)
 	{
 		if (is_string($tables)) {
 			$tables = [$tables];
@@ -217,8 +217,7 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 			}, $cur);
 		}
 
-		$found_tables = count($columns);
-		return $found_tables > 1 || $found_tables === 0 ? $columns : $columns[0];
+		return $columns;
 	}
 
 	public static function fetch($sth, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array

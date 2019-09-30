@@ -11,17 +11,4 @@ interface IRelationalConnectable extends IConnectable
 	 * @param	int		$maxLength		max $outResultRef length
 	 */
 	static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void;
-
-	/**
-	 * lists all db tables
-	 * @return	array	tables' name list
-	 */
-	function showTables(): array;
-
-	/**
-	 * gets tables columns' name and type
-	 * @param	string|array	$tables	table name or array of names
-	 * @return	array		table columns' name and type or list of tables columns' name and type
-	 */
-	function showColumns($tables): array;
 }

@@ -179,3 +179,48 @@ $mongo_conn = (new Connection)($db_params);
 //using sql method the inbuilt QueryBuilder parses automatically sql syntax to mongoDB query schema
 $result = $mongo_conn->sql(/*sql syntax query, ex. "SELECT name FROM users"*/);
 ```
+
+### Class Builder
+Currently a work in progress
+
+```php
+<?php
+use Swolley\YardBird\Connection;
+use Swolley\YardBird\Utils\ClassBuilder;
+
+$db_params = [ /*... connection params */ ];
+$conn = (new Connection)($db_params);
+
+/**
+ * reads all tables and columns info and creates classes. Class's properties are generated as private with relative getters and setters containig validations depending on db columns' types
+ * @param	IConnectable	$conn 			db connection instance
+ * @param	bool			$prettyNames	(optional) respect db naming convention or prettify tables and properties names. Default is true
+ * @param	string|null		$classPath		(optional) write generated class definitions to filesystem or evaluate at runtime if null
+ */
+ClassBuilder::mapDB($conn);
+
+/*
+CREATE TABLE `my_user` (
+  `user_id` int(10) unsigned NOT NULL,
+  `user_name` varchar(50),
+  `password` char(64) NOT NULL
+);
+
+final class MyUser extends Swolley\YardBird\Models\AbstractModel { 
+	//user_id int(10) unsigned NOT NULL
+	private $userId;
+	public function getUserId() { return $this->userId; }
+	public function setUserId(int $userId  ) { if(strlen((string)$userId) <= 10 && $userId > 0) $this->userId = $userId; }
+
+	//user_name varchar(50)
+	private $userName;
+	public function getUserName() { return $this->userName; }
+	public function setUserName(?string $userName = null ) { if(strlen($userName) <= 50 || userName === null) $this->userName = $userName; }
+
+	//password char(64) NOT NULL
+	private $password;
+	public function getPassword() { return $this->password; }
+	public function setPassword(string $password  ) { if(strlen($password) === 64) $this->password = $password; }
+}
+*/
+```

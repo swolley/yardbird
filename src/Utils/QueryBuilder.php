@@ -17,15 +17,15 @@ class QueryBuilder
 	 */
 	public function sqlToMongo(string $query, array $params = []): object
 	{
-		if (mb_ereg_match('/^select/i', $query) === 1) {
+		if (preg_match('/^select/i', $query) === 1) {
 			return self::sqlSelectToMongo($query, $params);
-		} elseif (mb_ereg_match('/^insert/i', $query) === 1) {
+		} elseif (preg_match('/^insert/i', $query) === 1) {
 			return self::sqlInsertToMongo($query, $params);
-		} elseif (mb_ereg_match('/^delete from/i', $query) === 1) {
+		} elseif (preg_match('/^delete from/i', $query) === 1) {
 			return self::sqlDeleteToMongo($query, $params);
-		} elseif (mb_ereg_match('/^update/i', $query) === 1) {
+		} elseif (preg_match('/^update/i', $query) === 1) {
 			return self::sqlUpdateToMongo($query, $params);
-		} elseif (mb_ereg_match('/^call|exec|begin/i', $query) === 1) {
+		} elseif (preg_match('/^call|exec|begin/i', $query) === 1) {
 			return self::sqlProcedureToMongo($query, $params);
 		}
 			
@@ -49,25 +49,25 @@ class QueryBuilder
 
 		//removes insert
 		array_shift($query);
-		if (count($query) > 0 && mb_ereg_match('/ignore/i', $query[0]) === 1) {
+		if (count($query) > 0 && preg_match('/ignore/i', $query[0]) === 1) {
 			$ignore = true;
 			array_shift($query);
 		}
 
-		if (count($query) === 0 || mb_ereg_match('/into/i', $query[0]) === 0) throw new UnexpectedValueException('unable to parse query, check syntax');
+		if (count($query) === 0 || preg_match('/into/i', $query[0]) === 0) throw new UnexpectedValueException('unable to parse query, check syntax');
 
 		array_shift($query);
 		//set table name
-		$table = mb_ereg_replace('/`|\s/', '', array_shift($query));
-		if (mb_ereg_match('/^values/i', $query[0]) === 1) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
+		$table = preg_replace('/`|\s/', '', array_shift($query));
+		if (preg_match('/^values/i', $query[0]) === 1) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', array_shift($query));
-		$keys_list = array_map(function ($key) { return mb_ereg_replace('/`|\s/', '', $key); }, $keys_list);
+		$keys_list = array_map(function ($key) { return preg_replace('/`|\s/', '', $key); }, $keys_list);
 		if (count($keys_list) === 0) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 
 		//list of columns'values
-		if (mb_ereg_match('/^values/i', array_shift($query)) === 0) throw new UnexpectedValueException('columns list must be followed by VALUES keyword');
+		if (preg_match('/^values/i', array_shift($query)) === 0) throw new UnexpectedValueException('columns list must be followed by VALUES keyword');
 		
 		$values_list = preg_split('/,\s?/', array_shift($query));
 		$values_list = array_map(function ($value) { return self::castValue($value); }, $values_list);
@@ -110,11 +110,11 @@ class QueryBuilder
 
 		array_shift($query);
 		//TABLE
-		$table = mb_ereg_replace('/`|\s/', '', array_shift($query));
+		$table = preg_replace('/`|\s/', '', array_shift($query));
 
 		//WHERE
 		$final_nested = [];
-		if (count($query) > 0 && mb_ereg_match('/where/i', $query[0]) === 1) {
+		if (count($query) > 0 && preg_match('/where/i', $query[0]) === 1) {
 			array_shift($query);
 			if(count($query) === 0) throw new UnexpectedValueException('WHERE keyword must be followed by clauses');
 
@@ -150,9 +150,9 @@ class QueryBuilder
 		array_shift($query);
 
 		//TABLE
-		$table = mb_ereg_replace('/`|\s/', '', array_shift($query));
+		$table = preg_replace('/`|\s/', '', array_shift($query));
 		//removes SET keyword
-		if(mb_ereg_match('/set/i', $query[0]) === 0) throw new UnexpectedValueException('Missing keywor SET');
+		if(preg_match('/set/i', $query[0]) === 0) throw new UnexpectedValueException('Missing keywor SET');
 		array_shift($query);
 
 		//list of columns'names
@@ -161,7 +161,7 @@ class QueryBuilder
 
 		$parsed_params = [];
 		foreach ($keys_list as $value) {
-			$exploded = explode('=', mb_ereg_replace('/`|\s/', '', $value));
+			$exploded = explode('=', preg_replace('/`|\s/', '', $value));
 			$key = ltrim($exploded[1], ':');
 			$parsed_params[$exploded[0]] = array_key_exists($key, $params) ? $params[$key] : self::castValue($key);
 		}
@@ -169,7 +169,7 @@ class QueryBuilder
 
 		//checks for where clauses
 		$final_nested = [];
-		if (count($query) > 0 && mb_ereg_match('/^where/i', $query[0]) === 1) {
+		if (count($query) > 0 && preg_match('/^where/i', $query[0]) === 1) {
 			array_shift($query);
 			//splits on parentheses
 			$query = self::splitsOnParenthesis($query);
@@ -212,7 +212,7 @@ class QueryBuilder
 		
 		//DISTINCT
 		$isDistinct = false;
-		if (mb_ereg_match('/distinct/i', $query[0]) === 1) {
+		if (preg_match('/distinct/i', $query[0]) === 1) {
 			array_shift($query);
 			$isDistinct = true;
 		}
@@ -223,7 +223,7 @@ class QueryBuilder
 		$projection = [];
 		$is_unique_id = false;
 		foreach( $columns_list as $key) {
-			$splitted = preg_split('/ as /i', mb_ereg_replace('/`/', '', $key));
+			$splitted = preg_split('/ as /i', preg_replace('/`/', '', $key));
 			if($splitted[0] === '_id') {
 				$is_unique_id = true;
 			}
@@ -241,24 +241,24 @@ class QueryBuilder
 		unset($columns_list);
 
 		//FROM
-		if (mb_ereg_match('/from/i', $query[0]) === 0) throw new UnexpectedValueException("select query require FROM keyword after columns list");
+		if (preg_match('/from/i', $query[0]) === 0) throw new UnexpectedValueException("select query require FROM keyword after columns list");
 		
 		array_shift($query);
 		//TABLE
-		$table = mb_ereg_replace('/`|\s/', '', array_shift($query));
+		$table = preg_replace('/`|\s/', '', array_shift($query));
 
 		//JOINS
 		$aggregate = [];
-		while(count($query) > 0 && mb_ereg_match('/join/i', $query[0]) === 1) {
-			if(mb_ereg_match('/inner/i', $query[0]) === 1) throw new UnexpectedValueException('MongoDB can only handles left joins');
+		while(count($query) > 0 && preg_match('/join/i', $query[0]) === 1) {
+			if(preg_match('/inner/i', $query[0]) === 1) throw new UnexpectedValueException('MongoDB can only handles left joins');
 
 			array_shift($query);
 			list($joined_table, $left_field, $right_field) = preg_split('/(\w+) on ((?:\w+.)?\w+)\s?(?:=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))\s?((?:\w+.)?\w+)\s?/i', array_shift($query), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 			$aggregate[] = [
 				'$lookup' => [
 					'from' => $joined_table,
-					'localField' => mb_ereg_replace('/^\w+.?/', '', (mb_ereg_match('/^'.$joined_table.'./', $left_field) === 1 ? $left_field : $right_field)),
-					'foreignField' => mb_ereg_replace('/^\w+.?/', '', (mb_ereg_match('/^'.$joined_table.'./', $left_field) === 1 ? $right_field : $left_field)),
+					'localField' => preg_replace('/^\w+.?/', '', (preg_match('/^'.$joined_table.'./', $left_field) === 1 ? $left_field : $right_field)),
+					'foreignField' => preg_replace('/^\w+.?/', '', (preg_match('/^'.$joined_table.'./', $left_field) === 1 ? $right_field : $left_field)),
 					'as' => $joined_table
 				]
 			];
@@ -266,7 +266,7 @@ class QueryBuilder
 		
 		//WHERE
 		$final_nested = [];
-		if (count($query) > 0 && mb_ereg_match('/where/i', $query[0]) === 1) {
+		if (count($query) > 0 && preg_match('/where/i', $query[0]) === 1) {
 			array_shift($query);
 			$query = self::splitsOnParenthesis($query);
 			//parse and nest parameters
@@ -279,7 +279,7 @@ class QueryBuilder
 
 		//ORDER BY
 		$order_fields = [];
-		if (count($query) > 0 && mb_ereg_match('/order by/i', $query[0]) === 1) {
+		if (count($query) > 0 && preg_match('/order by/i', $query[0]) === 1) {
 			array_shift($query);
 			$splitted = preg_split('/,\s?/', trim(array_shift($query)));
 			foreach($splitted as $element) {
@@ -289,7 +289,7 @@ class QueryBuilder
 		}
 
 		$limit = null;
-		if (count($query) > 0 && mb_ereg_match('/limit/i', $query[0]) === 1) {
+		if (count($query) > 0 && preg_match('/limit/i', $query[0]) === 1) {
 			array_shift($query);
 			$limit = preg_split('/,/', array_shift($query));
 			if(count($limit) === 0) {
@@ -328,20 +328,20 @@ class QueryBuilder
 	public function sqlProcedureToMongo(string $query, array $params = []): object
 	{
 		$query = Utils::trimQueryString($query);
-		$query = mb_ereg_match('/^call|begin/i', $query) === 1
+		$query = preg_match('/^call|begin/i', $query) === 1
 			? preg_split('/^(call|begin)\s(\w+)\s?\((.*)\)(?:;\s?end)?/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY)
 			: preg_split('/^(exec) (\w+)(?:\s(.*))?/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 		if (empty($query)) throw new UnexpectedValueException('unable to parse query, check syntax');
 
 		array_shift($query);
 		//PROCEDURE NAME
-		$procedure = mb_ereg_replace('/`|\s/', '', array_shift($query));
+		$procedure = preg_replace('/`|\s/', '', array_shift($query));
 		$params = [];
 		if(count($query) > 0) {
 			$parameters_list = preg_split('/,\s?/', array_shift($query));
 			foreach ($parameters_list as $key => $value) {
 				//checks if every placeholder has a value in params
-				if (mb_strpos($value, ':') === 0) {
+				if (strpos($value, ':') === 0) {
 					$key = ltrim($value, ':');
 					if (!array_key_exists($key, $params)) {
 						throw new BadMethodCallException("Missing corresponding value to bind in params array");
@@ -375,7 +375,7 @@ class QueryBuilder
 	{
 		$where_params = [];
 		while ($idx < count($query)) {
-			if (mb_ereg_match('/!?=|<=?|>=?/i', $query[$idx]) === 1) {
+			if (preg_match('/!?=|<=?|>=?/i', $query[$idx]) === 1) {
 				$splitted = preg_split('/(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))/i', $query[$idx], null, PREG_SPLIT_DELIM_CAPTURE);
 				switch ($splitted[1]) {
 					case '=':
@@ -406,7 +406,7 @@ class QueryBuilder
 				}
 
 				$where_params[] = [$splitted[0] => [$operator => $splitted[2]]];
-			} elseif (mb_ereg_match('/\slike\s/i', $query[$idx]) === 1) {
+			} elseif (preg_match('/\slike\s/i', $query[$idx]) === 1) {
 				$splitted = preg_split('/\slike\s/i', $query[$idx]);
 				if(mb_substr($splitted[1], 0, 1) === ':' && isset($params[mb_substr($splitted[1], 1)])) {
 					$splitted[1] = $params[mb_substr($splitted[1], 1)];
@@ -416,7 +416,7 @@ class QueryBuilder
 				//last char
 				$splitted[1] = mb_substr($splitted[1], -1) === '%' ? mb_substr($splitted[1], 0, -1) . '$' : $splitted[1];
 				$where_params[] = [trim($splitted[0], '`') => new Regex($splitted[1], 'i')];
-			} elseif (mb_ereg_match('/and|&&|or|\|\|/i', $query[$idx]) === 1) {
+			} elseif (preg_match('/and|&&|or|\|\|/i', $query[$idx]) === 1) {
 				$where_params[] = $query[$idx];
 			} elseif ($query[$idx] === '(') {
 				$idx++;
@@ -496,8 +496,8 @@ class QueryBuilder
 	 */
 	public static function castValue($value)
 	{
-		if (mb_ereg_match("/^'|\"\w+'|\"$/", $value)) {
-			return mb_ereg_replace("/'|\"/", '', $value);
+		if (preg_match("/^'|\"\w+'|\"$/", $value)) {
+			return preg_replace("/'|\"/", '', $value);
 		} elseif (is_numeric($value)) {
 			return $value + 0;
 		} elseif (is_bool($value)) {
@@ -514,9 +514,9 @@ class QueryBuilder
 	 */
 	public static function operatorsToStandardSyntax(string $query): string
 	{
-		$query = mb_ereg_replace("/\s?&&\s?/", ' AND ', $query);
-		$query = mb_ereg_replace("/\s?\|\|\s?/", ' OR ', $query);
-		$query = mb_ereg_replace("/\s?!=\s?/", '<>', $query);
+		$query = preg_replace("/\s?&&\s?/", ' AND ', $query);
+		$query = preg_replace("/\s?\|\|\s?/", ' OR ', $query);
+		$query = preg_replace("/\s?!=\s?/", '<>', $query);
 		return $query;
 	}
 
@@ -530,7 +530,7 @@ class QueryBuilder
 		$total_params = count($params);
 		$tot_question_placeholders = mb_substr_count($query, '?');
 		$colon_placeholders = [];
-		mb_ereg_match_all('/(:\w+)/i', $query, $colon_placeholders);
+		preg_match_all('/(:\w+)/i', $query, $colon_placeholders);
 		$colon_placeholders = array_shift($colon_placeholders);
 		$tot_col_placeholders = count($colon_placeholders);
 		if ($tot_col_placeholders > 0 && $tot_question_placeholders > 0) throw new UnexpectedValueException('Possible incongruence in query placeholders');
@@ -564,7 +564,7 @@ class QueryBuilder
 		//splits on parentheses
 		$query = preg_split('/(?<!like)\s(?!like)/i', $query[0]);
 		for ($idx = 0; $idx < count($query); $idx++) {
-			if (mb_strpos($query[$idx], '(') !== false || mb_strpos($query[$idx], ')') !== false) {
+			if (strpos($query[$idx], '(') !== false || strpos($query[$idx], ')') !== false) {
 				$first_part = array_slice($query, 0, $idx);
 				$second_part = array_slice($query, $idx + 1);
 				if (mb_substr($query[$idx], 0, 1) === '(') {
@@ -614,11 +614,11 @@ class QueryBuilder
 		foreach($join as $joined_table => $join_options) {
 			if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) throw new BadMethodCallException('Malformed join array');
 
-			$stringed_joins .= strtoupper(mb_ereg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
+			$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
 				. ' ON ' 
-				. (mb_ereg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
-				. (isset($join_options['operator']) && mb_ereg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
-				. (mb_ereg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table.'.'.$join_options['joinedField'])
+				. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
+				. (isset($join_options['operator']) && preg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
+				. (preg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table.'.'.$join_options['joinedField'])
 				. ' ';
 		}
 
@@ -634,17 +634,23 @@ class QueryBuilder
 	{
 		$stringed_order_by = '';
 		foreach($orderBy as $key => $value) {
-			if($value === 1) {
+			if(is_string($value)) {
+				$key = $value;
 				$direction = 'ASC';
-			} elseif($value === -1) {
-				$direction = 'DESC';
 			} else {
-				throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
+				$key = is_string($value) ? $value : array_keys($value)[0];
+				if($value[$key] === 1) {
+					$direction = 'ASC';
+				} elseif($value[$key] === -1) {
+					$direction = 'DESC';
+				} else {
+					throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
+				}
 			}
 
 			$stringed_order_by .= "{$key} {$direction},"; 
 		}
-		rtrim($stringed_order_by, ',');
+		$stringed_order_by = rtrim($stringed_order_by, ',');
 		if(!empty($stringed_order_by)) {
 			$stringed_order_by = "ORDER BY {$stringed_order_by}";
 		}

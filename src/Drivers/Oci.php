@@ -34,7 +34,7 @@ class Oci implements IRelationalConnectable
 			if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
 
 			$connect_data_value = $params[$connect_data_name];
-			$connection_string = mb_ereg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$parsed_params['host']})(PORT = {$parsed_params['port']}))) (CONNECT_DATA = (" . strtoupper(mb_ereg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
+			$connection_string = preg_replace("/\n|\r|\n\r|\t/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$parsed_params['host']})(PORT = {$parsed_params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
 			$this->_db = oci_connect(...[ $parsed_params['user'], $parsed_params['password'], $connection_string ]);
 			oci_internal_debug($debugMode);
 		} catch(\Throwable $e) {
@@ -77,7 +77,7 @@ class Oci implements IRelationalConnectable
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = mb_ereg_match('/^update|^insert|^delete/i', $query) === 1 ?: self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+		$response = preg_match('/^update|^insert|^delete/i', $query) === 1 ?: self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		oci_free_statement($sth);
 		return $response;
 	}
@@ -202,7 +202,7 @@ class Oci implements IRelationalConnectable
 		}, $this->sql('SELECT * FROM tab'));
 	}
 
-	public function showColumns($tables): array
+	public function showColumns($tables)
 	{
 		if (is_string($tables)) {
 			$tables = [$tables];
@@ -226,8 +226,7 @@ class Oci implements IRelationalConnectable
 			}, $cur);
 		}
 
-		$found_tables = count($columns);
-		return $found_tables > 1 || $found_tables === 0 ? $columns : $columns[0];
+		return $columns;
 	}
 
 	public static function fetch($sth, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
