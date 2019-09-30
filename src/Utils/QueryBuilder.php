@@ -598,7 +598,7 @@ class QueryBuilder
 	 */
 	public static function fieldsToSql(array $fields): string
 	{
-		return empty($fileds) ? '*' : join(', ', array_map(function($field, $idx) {
+		return empty($fields) ? '*' : join(', ', array_map(function($field, $idx) {
 			return is_string($idx) ? "`$idx` as `$field`" : "`$field`";
 		}, $fields, array_keys($fields)));
 	}

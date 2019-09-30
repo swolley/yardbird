@@ -23,7 +23,7 @@ class Utils
 	 */
 	public static function hash($data): string
 	{
-		return md5(serialize($data));
+		return hash('sha1', serialize($data));
 	}
 
 	public static function toCamelCase(string $string): string

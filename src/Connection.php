@@ -26,7 +26,7 @@ final class Connection
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) throw new BadMethodCallException("Connection parameters are required");
 		try {
 			$found = self::checkExtension($connectionParameters['driver']);
-			if(is_null($found)) throw new \Exception();
+			if($found === null) throw new \Exception();
 			$className = 'Swolley\YardBird\Drivers\\' . ucfirst($found);
 			return new $className($connectionParameters, $debugMode);
 		} catch (ConnectionException $e) {
