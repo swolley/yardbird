@@ -3,7 +3,7 @@
 	"description": "A wrapper for multiple types of databases",
     "type": "library",
     "scripts": {
-		"test": "SHELL_INTERACTIVE=1 phpunit --bootstrap vendor/autoload.php --colors=always --stop-on-failure --whitelist ./src/ --coverage-clover ./codecoverage/xml/coverage.xml --coverage-html ./codecoverage/html/ ./tests/",
+		"test": "SHELL_INTERACTIVE=1 phpunit --bootstrap vendor/autoload.php --colors=always --whitelist ./src/ --coverage-clover ./codecoverage/xml/coverage.xml --coverage-html ./codecoverage/html/ ./tests/",
 		"check": "composer check-platform-reqs"
     },
     "suggest": {

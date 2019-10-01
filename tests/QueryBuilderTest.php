@@ -28,39 +28,40 @@ final class QueryBuilderTest extends TestCase
 	public function test_sqlToMongo_should_return_object_if_parameters_are_correct(): void
 	{
 		$queryBuilder = new QueryBuilder();
-		$query = $queryBuilder->sqlToMongo('SELECT id FROM table');
+		$query = $queryBuilder->sqlToMongo('SELECT id FROM table WHERE `id`=1');
 		$this->assertTrue(is_object($query));
 		$this->assertEquals('select', $query->type);
 		$this->assertEquals('table', $query->table);
-		$this->assertEquals([], $query->filter);
+		$this->assertEquals(['id' => ['$eq' => 1]], $query->filter);
 		$this->assertEquals(['projection' => ['id' => 1, '_id' => 0]], $query->options);
 
-		$query = $queryBuilder->sqlToMongo('INSERT INTO table(a, b) VALUES(:a, :b)', ['a' => 1, 'b' => 2]);
+		$query = $queryBuilder->sqlToMongo('INSERT INTO table(`a`, b) VALUES(:a, :b)', ['a' => 1, 'b' => 2]);
 		$this->assertTrue(is_object($query));
 		$this->assertEquals('insert', $query->type);
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
 		$this->assertTrue(empty($query->options));
 
-		$query = $queryBuilder->sqlToMongo('UPDATE table SET a=:a, b=:b', ['a' => 1, 'b' => 2]);
+		$query = $queryBuilder->sqlToMongo('UPDATE table SET a=:a, `b`=:b WHERE id=1', ['a' => 1, 'b' => 2]);
 		$this->assertTrue(is_object($query));
 		$this->assertEquals('update', $query->type);
 		$this->assertEquals('table', $query->table);
 		$this->assertEquals(['a' => 1, 'b' => 2], $query->params);
+		$this->assertEquals(['id' => ['$eq' => 1]], $query->where);
 		$this->assertTrue(empty($query->options));
 
-		$query = $queryBuilder->sqlToMongo('DELETE FROM table');
+		$query = $queryBuilder->sqlToMongo('DELETE FROM `table` WHERE `id`=1');
 		$this->assertTrue(is_object($query));
 		$this->assertEquals('delete', $query->type);
 		$this->assertEquals('table', $query->table);
-		$this->assertEquals([], $query->params);
+		$this->assertEquals(['id' => ['$eq' => 1]], $query->params);
 		$this->assertTrue(empty($query->options));
 
-		$query = $queryBuilder->sqlToMongo('CALL procedure()');
+		$query = $queryBuilder->sqlToMongo('CALL procedure(1, 2)');
 		$this->assertTrue(is_object($query));
 		$this->assertEquals('procedure', $query->type);
 		$this->assertEquals('procedure', $query->name);
-		$this->assertEquals([], $query->params);
+		$this->assertEquals(['param1' => 1, 'param2' => 2], $query->params);
 		$this->assertTrue(empty($query->options));
 	}
 
@@ -138,22 +139,21 @@ final class QueryBuilderTest extends TestCase
 	 */
 	public function test_sqlUpdateToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET `id`='value'");
+		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET `id`=1 WHERE `id`<=10");
 		$response = (object)[
 			'type' => 'update',
 			'table' => 'table',
-			'params' => ['id' => 'value'],
-			'where' => []
+			'params' => ['id' => 1],
+			'where' => ['id' => ['$lte' => 10]]
 		];
 		$this->assertEquals($response, $query);
 
-		//FIXME il where è sbagliato
-		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET `id`='value' WHERE `id`='tochange'");
+		$query = (new QueryBuilder)->sqlUpdateToMongo("UPDATE `table` SET `id`=1 WHERE `id`>=1");
 		$response = (object)[
 			'type' => 'update',
 			'table' => 'table',
-			'params' => ['id' => 'value'],
-			'where' => ['id' => 'tochange']
+			'params' => ['id' => 1],
+			'where' => ['id' => ['$gte' => 1]]
 		];
 		$this->assertEquals($response, $query);
 	}
@@ -172,7 +172,7 @@ final class QueryBuilderTest extends TestCase
 	 */
 	public function test_sqlSelectToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
-		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT * FROM `table` ORDER BY `column`");
+		$query = (new QueryBuilder)->sqlSelectToMongo("SELECT * FROM `table` LEFT JOIN `table2` ON `table2`.id = `table`.id WHERE field LIKE '%anything' ORDER BY `column` LIMIT 1");
 		$response = (object)[
 			'type' => 'select',
 			'table' => 'table',
@@ -180,8 +180,17 @@ final class QueryBuilderTest extends TestCase
 			'options' => [
 				'projection' => []
 			],
-			'aggregate' => [],
-			'limit' => null,
+			'aggregate' => [
+				[
+					'$lookup' => [
+						'from' => 'table2',
+						'localField' => 'id',
+						'foreignField' => 'id',
+						'as' => 'table2'
+					]
+				]
+			],
+			'limit' => 1,
 			'orderBy' => [ 'column' => 1 ]
 		];
 		$this->assertEquals($response, $query);
