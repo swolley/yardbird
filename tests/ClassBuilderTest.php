@@ -69,7 +69,5 @@ final class ClassBuilderTest extends TestCase
 			}, $method->getParameters())]; 
 		}, $generated_reflection->getMethods());
 		$this->assertEquals($mapped_expected, $mapped_generated);
-
-		echo "pippo";
 	}
 }
