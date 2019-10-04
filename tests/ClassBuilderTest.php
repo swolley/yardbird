@@ -27,25 +27,49 @@ final class ClassBuilderTest extends TestCase
 
 		$tables = [
 			'one' => [ 
-				'field1' => [ 'type' => 'varchar(15)', 'nullable' => false, 'default' => null ],
-				'field2' => [ 'type' => 'int unsigned', 'nullable' => true, 'default' => 1 ]
+				'field1' => [ 'type' => 'varchar(15)', 'nullable' => true, 'default' => null ],
+				'field2' => [ 'type' => 'int unsigned', 'nullable' => false, 'default' => 1 ]
 			],
 		];
 
 		$method->invokeArgs($reflection, [$tables]);
 		$this->assertTrue(class_exists('One'));
 		$generated_reflection = new \ReflectionClass('One');
+		$this->assertTrue($generated_reflection->isSubclassOf('Swolley\YardBird\Models\AbstractModel'));
 		
-		eval('final class Two extends Swolley\YardBird\Models\AbstractModel { 
-			private $field1;
+		eval('private $field1;
 			public function getField1() { return $this->field1; }
-			public function setField1(string $field1  ) { if(strlen($field1) <= 15) $this->field1 = $field1; }
+			public function setField1(?string $field1 = null ) { if(strlen($field1) <= 15 || $field1 === null) $this->field1 = $field1; }
 			private $field2;
 			public function getField2() { return $this->field2; }
-			public function setField2(?int $field2 = 1 ) { if($field2 > 0) $this->field2 = $field2; }
-		}');
+			public function setField2(int $field2 = 1 ) { if($field2 > 0) $this->field2 = $field2; }
+		');
 		$expected_reflection = new \ReflectionClass('Two');
 
-		$this->assertEquals(array_map(function($field) { return [$field->getName(), $$expected_reflection->getFields()), )		
+		$mapped_expected = array_map(function($prop) { 
+			return [\Reflection::getModifierNames($prop->getModifiers()), $prop->getName()]; 
+		}, $expected_reflection->getProperties());
+		$mapped_generated = array_map(function($prop) { 
+			return [\Reflection::getModifierNames($prop->getModifiers()), $prop->getName()]; 
+		}, $generated_reflection->getProperties());
+		$this->assertEquals($mapped_expected, $mapped_generated);
+		
+		$mapped_expected = array_map(function($method) { 
+			return [\Reflection::getModifierNames($method->getModifiers()), $method->getName(), $method->getReturnType(), array_map(function($param) { 
+				$parsed_param = [$param->getName(), $param->getType(), $param->isOptional()]; 
+				if($param->isDefaultValueAvailable()) $parsed_param[] = $param->getDefaultValue();
+				return $parsed_param;
+			}, $method->getParameters())]; 
+		}, $expected_reflection->getMethods());
+		$mapped_generated = array_map(function($method) { 
+			return [\Reflection::getModifierNames($method->getModifiers()), $method->getName(), $method->getReturnType(), array_map(function($param) { 
+				$parsed_param = [$param->getName(), $param->getType(), $param->isOptional()]; 
+				if($param->isDefaultValueAvailable()) $parsed_param[] = $param->getDefaultValue();
+				return $parsed_param;
+			}, $method->getParameters())]; 
+		}, $generated_reflection->getMethods());
+		$this->assertEquals($mapped_expected, $mapped_generated);
+
+		echo "pippo";
 	}
 }

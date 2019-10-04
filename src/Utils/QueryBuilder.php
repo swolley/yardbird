@@ -1,4 +1,5 @@
 <?php
+
 namespace Swolley\YardBird\Utils;
 
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
@@ -28,7 +29,7 @@ class QueryBuilder
 		} elseif (preg_match('/^call|exec|begin/i', $query) === 1) {
 			return self::sqlProcedureToMongo($query, $params);
 		}
-			
+
 		throw new UnexpectedValueException('queryBuilder is unable to detect the query type');
 	}
 
@@ -63,14 +64,18 @@ class QueryBuilder
 
 		//list of columns'names
 		$keys_list = preg_split('/,\s?/', array_shift($query));
-		$keys_list = array_map(function ($key) { return preg_replace('/`|\s/', '', $key); }, $keys_list);
+		$keys_list = array_map(function ($key) {
+			return preg_replace('/`|\s/', '', $key);
+		}, $keys_list);
 		if (count($keys_list) === 0) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' names');
 
 		//list of columns'values
 		if (preg_match('/^values/i', array_shift($query)) === 0) throw new UnexpectedValueException('columns list must be followed by VALUES keyword');
-		
+
 		$values_list = preg_split('/,\s?/', array_shift($query));
-		$values_list = array_map(function ($value) { return self::castValue($value); }, $values_list);
+		$values_list = array_map(function ($value) {
+			return self::castValue($value);
+		}, $values_list);
 		if (count($values_list) === 0) throw new UnexpectedValueException('sqlInsertToMongo needs to know columns\' values');
 
 		if (count($keys_list) !== count($values_list)) throw new BadMethodCallException('Columns count must match values count');
@@ -87,7 +92,7 @@ class QueryBuilder
 		$params = array_combine($keys_list, $values_list);
 
 		//query elements ready to be passed to driver function
-		return (object)[
+		return (object) [
 			'type' => 'insert',
 			'table' => $table,
 			'params' => $params,
@@ -116,7 +121,7 @@ class QueryBuilder
 		$final_nested = [];
 		if (count($query) > 0 && preg_match('/where/i', $query[0]) === 1) {
 			array_shift($query);
-			if(count($query) === 0) throw new UnexpectedValueException('WHERE keyword must be followed by clauses');
+			if (count($query) === 0) throw new UnexpectedValueException('WHERE keyword must be followed by clauses');
 
 			$query = self::splitsOnParenthesis(str_replace('`', '', $query));
 			//parse and nest parameters
@@ -125,10 +130,12 @@ class QueryBuilder
 			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
+			$query = array_values($query);
+			unset($where_params);
 		}
 
 		//query elements ready to be passed to driver function
-		return (object)[
+		return (object) [
 			'type' => 'delete',
 			'table' => $table,
 			'params' => $final_nested
@@ -152,7 +159,7 @@ class QueryBuilder
 		//TABLE
 		$table = preg_replace('/`|\s/', '', array_shift($query));
 		//removes SET keyword
-		if(preg_match('/set/i', $query[0]) === 0) throw new UnexpectedValueException('Missing keywor SET');
+		if (preg_match('/set/i', $query[0]) === 0) throw new UnexpectedValueException('Missing keywor SET');
 		array_shift($query);
 
 		//list of columns'names
@@ -180,10 +187,12 @@ class QueryBuilder
 			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
+			$query = array_values($query);
+			unset($where_params);
 		}
 
 		//query elements ready to be passed to driver function
-		return (object)[
+		return (object) [
 			'type' => 'update',
 			'table' => $table,
 			'params' => $parsed_params,
@@ -210,53 +219,53 @@ class QueryBuilder
 		if (empty($query) || count($query) === 1) throw new UnexpectedValueException('unable to parse query, check syntax');
 		//removes select
 		array_shift($query);
-		
+
 		//DISTINCT
 		$isDistinct = false;
 		if (preg_match('/distinct/i', $query[0]) === 1) {
 			array_shift($query);
 			$isDistinct = true;
 		}
-		
+
 		//COLUMNS
 		$rename_aliases = [];
 		$columns_list = preg_split('/,\s?/', trim(array_shift($query)));
 		$projection = [];
 		$is_unique_id = false;
-		foreach( $columns_list as $key) {
+		foreach ($columns_list as $key) {
 			$splitted = preg_split('/ as /i', str_replace('`', '', $key));
-			if($splitted[0] === '_id') {
+			if ($splitted[0] === '_id') {
 				$is_unique_id = true;
 			}
 			$projection[$splitted[0]] = 1;
 
-			if(isset($splitted[1])) {
+			if (isset($splitted[1])) {
 				$rename_aliases[$splitted[0]] = $splitted[1];
 			}
 		}
 		if (count($projection) === 1 && key($projection) === '*') {
 			$projection = [];
-		} elseif(!$is_unique_id) {
+		} elseif (!$is_unique_id) {
 			$projection['_id'] = 0;
 		}
 		unset($columns_list);
 
 		//FROM
 		if (preg_match('/from/i', $query[0]) === 0) throw new UnexpectedValueException("select query require FROM keyword after columns list");
-		
+
 		array_shift($query);
 		//TABLE
 		$table = preg_replace('/`|\s/', '', array_shift($query));
 
 		//JOINS
 		$aggregate = [];
-		while(count($query) > 0 && preg_match('/join/i', $query[0]) === 1) {
-			if(preg_match('/inner/i', $query[0]) === 1) throw new UnexpectedValueException('MongoDB can only handles left joins');
+		while (count($query) > 0 && preg_match('/join/i', $query[0]) === 1) {
+			if (preg_match('/inner/i', $query[0]) === 1) throw new UnexpectedValueException('MongoDB can only handles left joins');
 
 			array_shift($query);
 			list($joined_table, $left_field, $right_field) = preg_split('/(`?\w+`?) on ((?:`?\w+`?.)?(`?\w+`?))\s?(?:=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))\s?((?:`?\w+`?.)?(`?\w+`?))\s?/i', array_shift($query), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-			
-			$is_table_dot_field = preg_match('/^`?'.$joined_table.'`?./', $left_field) === 1;
+
+			$is_table_dot_field = preg_match('/^`?' . $joined_table . '`?./', $left_field) === 1;
 			$joined_table = str_replace('`', '', $joined_table);
 			$aggregate[] = [
 				'$lookup' => [
@@ -267,7 +276,7 @@ class QueryBuilder
 				]
 			];
 		}
-		
+
 		//WHERE
 		$final_nested = [];
 		if (count($query) > 0 && preg_match('/where/i', $query[0]) === 1) {
@@ -279,6 +288,9 @@ class QueryBuilder
 			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
+			unset($where_params);
+			//recalculates indexes from 0
+			$query = array_values($query);
 		}
 
 		//ORDER BY
@@ -286,7 +298,7 @@ class QueryBuilder
 		if (count($query) > 0 && preg_match('/order by/i', $query[0]) === 1) {
 			array_shift($query);
 			$splitted = preg_split('/,\s?/', preg_replace('/\s|`/', '', (array_shift($query))));
-			foreach($splitted as $element) {
+			foreach ($splitted as $element) {
 				$key_order = preg_split('/\s/', $element);
 				$order_fields[$key_order[0]] = isset($key_order[1]) && strtolower($key_order[1]) === 'desc' ? -1 : 1;
 			}
@@ -297,8 +309,8 @@ class QueryBuilder
 		if (count($query) > 0 && preg_match('/limit/i', $query[0]) === 1) {
 			array_shift($query);
 			$limit = preg_split('/,/', $query[0]);
-			if(count($limit) === 1) {
-				$limit = (int)$limit[0];
+			if (count($limit) === 1) {
+				$limit = (int) $limit[0];
 			}
 		}
 
@@ -307,21 +319,21 @@ class QueryBuilder
 			'table' => $table,
 			'filter' => $final_nested,
 			'options' => [
-				'projection' => $projection 
+				'projection' => $projection
 			],
 			'aggregate' => $aggregate,
 			'orderBy' => $order_fields,
 			'limit' => $limit
 		];
 
-		if($isDistinct) {
+		if ($isDistinct) {
 			$result['options']['distinct'] = $table;
 		}
-		if(!empty($rename_aliases)) {
+		if (!empty($rename_aliases)) {
 			$result['options']['rename'] = $rename_aliases;
 		}
 
-		return (object)$result;
+		return (object) $result;
 	}
 
 	/**
@@ -342,7 +354,7 @@ class QueryBuilder
 		//PROCEDURE NAME
 		$procedure = preg_replace('/`|\s/', '', array_shift($query));
 		$params = [];
-		if(count($query) > 0) {
+		if (count($query) > 0) {
 			$parameters_list = preg_split('/,\s?/', array_shift($query));
 			foreach ($parameters_list as $key => $value) {
 				//checks if every placeholder has a value in params
@@ -361,7 +373,7 @@ class QueryBuilder
 			}
 		}
 
-		return (object)[
+		return (object) [
 			'type' => 'procedure',
 			'name' => $procedure,
 			'params' => $params
@@ -380,6 +392,8 @@ class QueryBuilder
 	{
 		$where_params = [];
 		while ($idx < count($query)) {
+			if (preg_match('/order by|limit \d+/i', $query[$idx]) === 1) return $where_params;
+
 			if (preg_match('/!?=|<=?|>=?/', $query[$idx]) === 1) {
 				$splitted = preg_split('/(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>))/i', $query[$idx], null, PREG_SPLIT_DELIM_CAPTURE);
 				switch ($splitted[1]) {
@@ -412,28 +426,31 @@ class QueryBuilder
 
 				$where_params[] = [$splitted[0] => [$operator => $splitted[2]]];
 			} elseif (preg_match('/\slike\s/i', $query[$idx]) === 1) {
-				$splitted = preg_split('/\slike\s/i', $query[$idx]);
-				if(mb_substr($splitted[1], 0, 1) === ':' && isset($params[mb_substr($splitted[1], 1)])) {
-					$splitted[1] = $params[mb_substr($splitted[1], 1)];
+				list($column_name, $column_value) = preg_split('/\slike\s/i', $query[$idx]);
+				if (mb_substr($column_value, 0, 1) === ':' && isset($params[mb_substr($column_value, 1)])) {
+					$column_value = $params[mb_substr($column_value, 1)];
 				}
+				$column_value = trim($column_value, '\' ');
 				//first_char
-				$splitted[1] = mb_substr($splitted[1], 0, 1) === '%' ? '^' . mb_substr($splitted[1], 1) : $splitted[1];
+				$column_value = mb_substr($column_value, 0, 1) === '%' ? '^' . mb_substr($column_value, 1) : $column_value;
 				//last char
-				$splitted[1] = mb_substr($splitted[1], -1) === '%' ? mb_substr($splitted[1], 0, -1) . '$' : $splitted[1];
-				$where_params[] = [trim($splitted[0], '`') => new Regex($splitted[1], 'i')];
+				$column_value = mb_substr($column_value, -1) === '%' ? mb_substr($column_value, 0, -1) . '$' : $column_value;
+				$where_params[] = [trim($column_name, '`') => new Regex($column_value, 'i')];
 			} elseif (preg_match('/and|&&|or|\|\|/i', $query[$idx]) === 1) {
 				$where_params[] = $query[$idx];
 			} elseif ($query[$idx] === '(') {
 				$idx++;
 				$nested_level++;
 				$where_params[] = $this->parseOperators($query, $params, $idx, $nested_level);
+				$query = array_values($query);
 			} elseif ($query[$idx] === ')') {
 				//$idx++;
 				$nested_level--;
 				break;
-			} else {
+			} elseif (!empty($query[$idx])) {
 				throw new UnexpectedValueException('Unexpected keyword ' . $query[$idx]);
 			}
+			unset($query[$idx]);
 			$idx++;
 		}
 
@@ -453,7 +470,7 @@ class QueryBuilder
 		$nested_group = [];
 		$idx = 1;
 		//start
-		if(!is_numeric(key($query))) {
+		if (!is_numeric(key($query))) {
 			$nested_group = array_merge($nested_group, $query);
 		} else {
 			do {
@@ -506,9 +523,9 @@ class QueryBuilder
 		} elseif (is_numeric($value)) {
 			return $value + 0;
 		} elseif (is_bool($value)) {
-			return (bool)$value;
+			return (bool) $value;
 		}
-		
+
 		return $value;
 	}
 
@@ -567,21 +584,22 @@ class QueryBuilder
 	private static function splitsOnParenthesis(array $query): array
 	{
 		//splits on parentheses
-		$query = preg_split('/(?<!like)\s(?!like)/i', $query[0]);
+		//$query = preg_split('/(?<!like)\s(?!like)/i', $query[0]);
+		//FIXME NON FUNZIONA BENE
 		for ($idx = 0; $idx < count($query); $idx++) {
 			if (strpos($query[$idx], '(') !== false || strpos($query[$idx], ')') !== false) {
 				$first_part = array_slice($query, 0, $idx);
 				$second_part = array_slice($query, $idx + 1);
 				if (mb_substr($query[$idx], 0, 1) === '(') {
 					$first_part[] = '(';
-					$mb_substr = mb_substr($query[$idx], 1);
-					if ($mb_substr !== ' ') {
-						$first_part[] = $mb_substr;
+					$substr = mb_substr($query[$idx], 1);
+					if ($substr !== ' ') {
+						$first_part[] = $substr;
 					}
 				} elseif (mb_substr($query[$idx], -1, 1) === ')') {
-					$mb_substr = mb_substr($query[$idx], 0, -1);
-					if ($mb_substr !== ' ') {
-						$first_part[] = $mb_substr;
+					$substr = mb_substr($query[$idx], 0, -1);
+					if ($substr !== ' ') {
+						$first_part[] = $substr;
 					}
 					$first_part[] = ')';
 				}
@@ -603,7 +621,7 @@ class QueryBuilder
 	 */
 	public static function fieldsToSql(array $fields): string
 	{
-		return empty($fields) ? '*' : join(', ', array_map(function($field, $idx) {
+		return empty($fields) ? '*' : join(', ', array_map(function ($field, $idx) {
 			return is_string($idx) ? "`$idx` as `$field`" : "`$field`";
 		}, $fields, array_keys($fields)));
 	}
@@ -613,17 +631,17 @@ class QueryBuilder
 	 * @param	array	$join	join parameters
 	 * @return	string	query portion
 	 */
-	public static function joinsToSql(array $join): string 
+	public static function joinsToSql(array $join): string
 	{
 		$stringed_joins = '';
-		foreach($join as $joined_table => $join_options) {
-			if(!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) throw new BadMethodCallException('Malformed join array');
+		foreach ($join as $joined_table => $join_options) {
+			if (!isset($join_options['type'], $join_options['localField'], $join_options['joinedField'])) throw new BadMethodCallException('Malformed join array');
 
-			$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN') 
-				. ' ON ' 
-				. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table.'.'.$join_options['localField'])
+			$stringed_joins .= strtoupper(preg_match('/join$/', $join_options['type']) === 1 ? $join_options['type'] : $join_options['type'] . ' JOIN')
+				. ' ON '
+				. (preg_match('/^\w+./', $join_options['localField']) === 1 ? $join_options['localField'] : $joined_table . '.' . $join_options['localField'])
 				. (isset($join_options['operator']) && preg_match('/^(=|!=|<>|>=|<=|>(?!=)|<(?<!=)(?!>)$/', $join_options['operator']) === 1 ? $join_options['operator'] : '=')
-				. (preg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table.'.'.$join_options['joinedField'])
+				. (preg_match('/^\w+./', $join_options['joinedField']) === 1 ? $join_options['joinedField'] : $joined_table . '.' . $join_options['joinedField'])
 				. ' ';
 		}
 
@@ -638,25 +656,25 @@ class QueryBuilder
 	public static function orderByToSql(array $orderBy): string
 	{
 		$stringed_order_by = '';
-		foreach($orderBy as $key => $value) {
-			if(is_string($value)) {
+		foreach ($orderBy as $key => $value) {
+			if (is_string($value)) {
 				$key = $value;
 				$direction = 'ASC';
 			} else {
 				$key = is_string($value) ? $value : array_keys($value)[0];
-				if($value[$key] === 1) {
+				if ($value[$key] === 1) {
 					$direction = 'ASC';
-				} elseif($value[$key] === -1) {
+				} elseif ($value[$key] === -1) {
 					$direction = 'DESC';
 				} else {
 					throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
 				}
 			}
 
-			$stringed_order_by .= "{$key} {$direction},"; 
+			$stringed_order_by .= "{$key} {$direction},";
 		}
 		$stringed_order_by = rtrim($stringed_order_by, ',');
-		if(!empty($stringed_order_by)) {
+		if (!empty($stringed_order_by)) {
 			$stringed_order_by = "ORDER BY {$stringed_order_by}";
 		}
 
@@ -670,16 +688,16 @@ class QueryBuilder
 	 */
 	public static function limitToSql($limit): string
 	{
-		if($limit === null) {
+		if ($limit === null) {
 			$stringed_limit = '';
-		} elseif(is_integer($limit)){
+		} elseif (is_integer($limit)) {
 			$stringed_limit = $limit;
-		} elseif(is_array($limit) && count($limit) === 2) {
+		} elseif (is_array($limit) && count($limit) === 2) {
 			$stringed_limit = join(',', $limit);
 		} else {
 			throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
 		}
-		if(!empty($stringed_limit)) {
+		if (!empty($stringed_limit)) {
 			$stringed_limit = "LIMIT {$stringed_limit}";
 		}
 
@@ -697,10 +715,10 @@ class QueryBuilder
 		$stringed_where = '';
 		$keys = array_keys($where);
 		$operators = [];
-		foreach($where as $value) {
+		foreach ($where as $value) {
 			$operator = '=';
-			if(is_array($value)) {
-				if(count($value) !== 2) throw new UnexpectedValueException('Unexpected value in where clause');
+			if (is_array($value)) {
+				if (count($value) !== 2) throw new UnexpectedValueException('Unexpected value in where clause');
 				$operator = $value[1];
 			}
 
@@ -711,7 +729,7 @@ class QueryBuilder
 			$stringed_where .= "`{$keys['idx']}` {$operators['idx']} " . ($questionPlaceholders ? '?' : ":{$keys['idx']}") . " AND ";
 		}
 		$stringed_where = rtrim($stringed_where, 'AND ');
-		if(!empty($stringed_where)) {
+		if (!empty($stringed_where)) {
 			$stringed_where = "WHERE {$stringed_where}";
 		}
 

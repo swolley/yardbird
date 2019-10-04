@@ -15,6 +15,7 @@ final class QueryBuilderTest extends TestCase
 	///////////////////////////////// UNIT ////////////////////////////////////////////////
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlToMongo
+	 * @group unit
 	 */
 	public function test_sqlToMongo_should_return_exception_if_not_recognized_a_valid_query(): void
 	{
@@ -24,6 +25,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlToMongo
+	 * @group unit
 	 */
 	public function test_sqlToMongo_should_return_object_if_parameters_are_correct(): void
 	{
@@ -67,6 +69,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlInsertToMongo
+	 * @group unit
 	 */
 	public function test_sqlInsertToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
@@ -80,6 +83,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlInsertToMongo
+	 * @group unit
 	 */
 	public function test_sqlInsertToMongo_should_throw_exception_if_columns_count_differs_from_values(): void
 	{
@@ -89,6 +93,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlInsertToMongo
+	 * @group unit
 	 */
 	public function test_sqlInsertToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
@@ -104,6 +109,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlDeleteToMongo
+	 * @group unit
 	 */
 	public function test_sqlDeleteToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
@@ -113,6 +119,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlDeleteToMongo
+	 * @group unit
 	 */
 	public function test_sqlDeleteToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
@@ -127,6 +134,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlUpdateToMongo
+	 * @group unit
 	 */
 	public function test_sqlUpdateToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
@@ -136,6 +144,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlUpdateToMongo
+	 * @group unit
 	 */
 	public function test_sqlUpdateToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
@@ -160,6 +169,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlSelectToMongo
+	 * @group unit
 	 */
 	public function test_sqlSelectToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
@@ -169,6 +179,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlSelectToMongo
+	 * @group unit
 	 */
 	public function test_sqlSelectToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
@@ -176,7 +187,9 @@ final class QueryBuilderTest extends TestCase
 		$response = (object)[
 			'type' => 'select',
 			'table' => 'table',
-			'filter' => [],
+			'filter' => [
+				'field' => new \MongoDB\BSON\Regex('^anything', 'i')
+			],
 			'options' => [
 				'projection' => []
 			],
@@ -213,6 +226,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlProcedureToMongo
+	 * @group unit
 	 */
 	public function test_sqlProcedureToMongo_should_throw_exception_if_any_syntax_error(): void
 	{
@@ -222,6 +236,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::sqlProcedureToMongo
+	 * @group unit
 	 */
 	public function test_sqlProcedureToMongo_shold_return_object_if_parameters_are_correct(): void
 	{
@@ -236,6 +251,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::parseOperators
+	 * @group unit
 	 */
 	public function test_parseOperators_should_throw_exception_if_no_valid_operator_found(): void
 	{
@@ -249,6 +265,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::parseOperators
+	 * @group unit
 	 */
 	public function test_parseOperators_should_return_array_if_parameters_are_correct(): void
 	{
@@ -261,6 +278,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::groupLogicalOperators
+	 * @group unit
 	 */
 	public function test_groupLogicalOperators_should_return_grouped_params_by_operators(): void
 	{
@@ -282,6 +300,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::castValue
+	 * @group unit
 	 */
 	public function test_castValue_should_return_converted_value(): void
 	{
@@ -297,6 +316,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::colonsToQuestionMarksPlaceholders
+	 * @group unit
 	 */
 	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_both_colon_and_questionmark_placeholders_found(): void
 	{
@@ -308,6 +328,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::colonsToQuestionMarksPlaceholders
+	 * @group unit
 	 */
 	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_not_same_number_of_placeholders_and_params(): void
 	{
@@ -319,6 +340,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::colonsToQuestionMarksPlaceholders
+	 * @group unit
 	 */
 	public function test_colonsToQuestionMarksPlaceholders_should_throw_exception_if_no_corresponding_params_and_placeholders(): void
 	{
@@ -330,6 +352,7 @@ final class QueryBuilderTest extends TestCase
 
 	/**
 	 * @covers Swolley\YardBird\Utils\QueryBuilder::operatorsToStandardSyntax
+	 * @group unit
 	 */
 	public function test_operatorsToStandardSyntax_should_return_replaced_string(): void
 	{
