@@ -37,13 +37,14 @@ final class ClassBuilderTest extends TestCase
 		$generated_reflection = new \ReflectionClass('One');
 		$this->assertTrue($generated_reflection->isSubclassOf('Swolley\YardBird\Models\AbstractModel'));
 		
-		eval('private $field1;
+		eval('final class Two extends Swolley\YardBird\Models\AbstractModel {
+			private $field1;
 			public function getField1() { return $this->field1; }
 			public function setField1(?string $field1 = null ) { if(strlen($field1) <= 15 || $field1 === null) $this->field1 = $field1; }
 			private $field2;
 			public function getField2() { return $this->field2; }
 			public function setField2(int $field2 = 1 ) { if($field2 > 0) $this->field2 = $field2; }
-		');
+		}');
 		$expected_reflection = new \ReflectionClass('Two');
 
 		$mapped_expected = array_map(function($prop) { 

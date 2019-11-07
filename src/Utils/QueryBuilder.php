@@ -110,7 +110,7 @@ class QueryBuilder
 	{
 		$query = Utils::trimQueryString($query);
 		//splits main macro blocks (table, columns, values)
-		$query = preg_split('/^(delete from) (`?\w+`?)( where (?:(.+)))?$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+		$query = preg_split('/^(delete from) (`?\w+`?)(?:( where) (?:(.+)))?$/i', $query, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 		if (empty($query) || count($query) === 1) throw new UnexpectedValueException('unable to parse query, check syntax');
 
 		array_shift($query);
@@ -130,7 +130,7 @@ class QueryBuilder
 			$where_params = $this->parseOperators($query, $params, $idx, $nested_level);
 			//groups params by logical operators
 			$final_nested = $this->groupLogicalOperators($where_params);
-			$query = array_values($query);
+			//$query = array_values($query);
 			unset($where_params);
 		}
 
@@ -585,7 +585,6 @@ class QueryBuilder
 	{
 		//splits on parentheses
 		//$query = preg_split('/(?<!like)\s(?!like)/i', $query[0]);
-		//FIXME NON FUNZIONA BENE
 		for ($idx = 0; $idx < count($query); $idx++) {
 			if (strpos($query[$idx], '(') !== false || strpos($query[$idx], ')') !== false) {
 				$first_part = array_slice($query, 0, $idx);
@@ -605,7 +604,10 @@ class QueryBuilder
 				}
 
 				$query = array_merge($first_part, $second_part);
-				if (mb_substr(end($first_part), 0, 1) !== '(') {
+				/*if (mb_substr(end($first_part), 0, 1) !== '(') {
+					$idx++;
+				}*/
+				if($query[$idx+1] === ')') {
 					$idx++;
 				}
 			}
