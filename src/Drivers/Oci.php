@@ -14,6 +14,7 @@ use Swolley\YardBird\Interfaces\TraitDatabase;
 class Oci implements IRelationalConnectable
 {
 	use TraitDatabase;
+	private $_inTransaction = false;
 
 	/**
 	 * @var	resource	$_db	db connection
@@ -60,8 +61,9 @@ class Oci implements IRelationalConnectable
 		$sth = oci_parse($this->_db, $query);		
 		if(!self::bindParams($params, $sth)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth)) {
+		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
 			$error = oci_error($sth);
+			$this->rollbackTransaction();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
@@ -76,8 +78,9 @@ class Oci implements IRelationalConnectable
 		$sth = oci_parse($this->_db, 'SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
 		if(!empty($where) && !self::bindParams($where, $sth)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth)) {
+		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
 			$error = oci_error($sth);
+			$this->rollbackTransaction();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
@@ -97,8 +100,9 @@ class Oci implements IRelationalConnectable
 		
 		$inserted_id = null;
 		self:: bindOutParams($sth, ":last_inserted_id", $inserted_id);
-		if (!oci_execute($sth)) {
+		if (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
 			$error = oci_error($sth);
+			$this->rollbackTransaction();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
@@ -123,8 +127,9 @@ class Oci implements IRelationalConnectable
 		$sth = oci_parse($this->_db, "UPDATE `{$table}` SET {$values}" . ($where !== null ? " WHERE {$where}" : ''));
 		if(!self::bindParams($params, $sth)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth)) {
+		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
 			$error = oci_error($sth);
+			$this->rollbackTransaction();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
@@ -139,8 +144,9 @@ class Oci implements IRelationalConnectable
 		$sth = oci_parse($this->_db, "DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
 		if(!self::bindParams($params, $sth)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth)) {
+		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
 			$error = oci_error($sth);
+			$this->rollbackTransaction();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
@@ -170,8 +176,9 @@ class Oci implements IRelationalConnectable
 
 		$outResult = [];
 		self::bindOutParams($sth, $outParams, $outResult);
-		if (!oci_execute($sth)) {
+		if (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
 			$error = oci_error($sth);
+			$this->rollbackTransaction();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
@@ -262,5 +269,28 @@ class Oci implements IRelationalConnectable
 		} else {
 			throw new BadMethodCallException('$params and $outResult must have same type');
 		}
+	}
+
+	public function beginTransaction(): bool {
+		$this->_inTransaction = true;
+		return true;
+	}
+	
+	public function commitTransaction(): bool {
+		if($this->_inTransaction) {
+			$this->_inTransaction = false;
+			return oci_commit($this->_db);
+		}
+
+		return false;
+	}
+	
+	public function rollbackTransaction(): bool {
+		if($this->_inTransaction) {	
+			$this->_inTransaction = false;
+			return oci_rollback($this->_db);
+		}
+
+		return false;
 	}
 }

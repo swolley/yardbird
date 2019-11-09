@@ -252,4 +252,31 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 			throw new BadMethodCallException('$params and $outResult must have same type');
 		}
 	}
+
+	public function beginTransaction(): bool {
+		$this->_inTransaction = true;
+		return $this->autocommit(false);
+	}
+	
+	public function commitTransaction(): bool {
+		if($this->_inTransaction) {
+			$this->_inTransaction = false;
+			$committed = $this->commit();
+			$this->autocommit(true);
+			return $committed;
+		}
+
+		return false;
+	}
+	
+	public function rollbackTransaction(): bool {
+		if($this->_inTransaction) {	
+			$this->_inTransaction = false;
+			$rollbacked = $this->rollback();
+			$this->autocommit(true);
+			return $rollbacked;
+		}
+
+		return false;
+	}
 }

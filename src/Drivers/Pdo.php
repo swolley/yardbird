@@ -79,11 +79,13 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
+				$this->rollbackTransaction();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
 			return preg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->rowCount() > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
+			$this->rollbackTransaction();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
@@ -97,11 +99,13 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
+				$this->rollbackTransaction();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
 			return self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
+			$this->rollbackTransaction();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
@@ -131,6 +135,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
+				$this->rollbackTransaction();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
@@ -140,7 +145,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 			return $inserted_id !== '0' ? $inserted_id : $total_inserted > 0;
 		} catch (\PDOException $e) {
-			$this->rollBack();
+			$this->rollbackTransaction();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
@@ -165,11 +170,13 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
+				$this->rollbackTransaction();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
 			return $sth->rowCount() > 0;
 		} catch (\PDOException $e) {
+			$this->rollbackTransaction();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
@@ -189,11 +196,13 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
+				$this->rollbackTransaction();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
 			return $sth->rowCount() > 0;
 		} catch (\PDOException $e) {
+			$this->rollbackTransaction();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
@@ -231,11 +240,13 @@ class Pdo extends \PDO implements IRelationalConnectable
 			self::bindOutParams($outParams, $sth, $outResult);
 			if (!$sth->execute()) {
 				$error = $sth->errorInfo();
+				$this->rollbackTransaction();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
 			return count($outParams) > 0 ? $outResult : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
 		} catch (\PDOException $e) {
+			if ($this->inTransaction()) $this->rollback();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
@@ -360,6 +371,18 @@ class Pdo extends \PDO implements IRelationalConnectable
 		} else {
 			throw new BadMethodCallException('$params and $outResult must have same type');
 		}
+	}
+
+	public function beginTransaction(): bool {
+		return !$this->inTransaction() ? $this->beginTransaction() : false;
+	}
+
+	public function commitTransaction(): bool {
+		return $this->inTransaction() ? $this->commit() : false;
+	}
+
+	public function rollbackTransaction(): bool {
+		return $this->inTransaction() ? $this->rollback() : false;
 	}
 
 	/**

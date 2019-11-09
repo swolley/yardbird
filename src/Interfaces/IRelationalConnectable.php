@@ -11,4 +11,10 @@ interface IRelationalConnectable extends IConnectable
 	 * @param	int		$maxLength		max $outResultRef length
 	 */
 	static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void;
+
+	public function beginTransaction(): bool;
+
+	public function commitTransaction(): bool;
+
+	public function rollbackTransaction(): bool;
 }
