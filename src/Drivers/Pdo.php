@@ -2,8 +2,8 @@
 
 namespace Swolley\YardBird\Drivers;
 
-use Swolley\YardBird\Connection;
 use Swolley\YardBird\Interfaces\IRelationalConnectable;
+use Swolley\YardBird\Interfaces\AbstractResult;
 use Swolley\YardBird\Utils\Utils;
 use Swolley\YardBird\Utils\QueryBuilder;
 use Swolley\YardBird\Exceptions\ConnectionException;
@@ -11,6 +11,7 @@ use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Interfaces\TraitDatabase;
+use Swolley\YardBird\Results\PdoResult;
 
 class Pdo extends \PDO implements IRelationalConnectable
 {
@@ -26,7 +27,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 		$this->setInfo($params, $debugMode);
 
 		try {
-			parent::__construct(...[ $parsed_params['driver'] === 'oci' ? self::getOciString($parsed_params) : self::getDefaultString($parsed_params), $parsed_params['user'], $parsed_params['password'] ]);
+			parent::__construct($parsed_params['driver'] === 'oci' ? self::getOciString($parsed_params) : self::getDefaultString($parsed_params), $parsed_params['user'], $parsed_params['password']);
 			if (error_reporting() === E_ALL) {
 				parent::setAttribute(self::ATTR_ERRMODE, self::ERRMODE_EXCEPTION);
 			}
@@ -39,7 +40,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 	{
 		if (!in_array($params['driver'], self::getAvailableDrivers())) {
 			throw new UnexpectedValueException("No {$params['driver']} driver available");
-		}elseif (!isset($params['host'], $params['user'], $params['password'], $params['dbName']) || empty($params['dbName']) || empty($params['host']) || empty($params['user']) || empty($params['password'])) {
+		} elseif (!isset($params['host'], $params['user'], $params['password'], $params['dbName']) || empty($params['dbName']) || empty($params['host']) || empty($params['user']) || empty($params['password'])) {
 			throw new UnexpectedValueException("host, user, password are required");
 		} elseif ($params['driver'] === 'oci' && ((!isset($params['sid']) || empty($params['sid']))	&& (!isset($params['serviceName']) || empty($params['serviceName'])))) {
 			throw new UnexpectedValueException("sid or serviceName must be specified");
@@ -63,10 +64,10 @@ class Pdo extends \PDO implements IRelationalConnectable
 		return $params;
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function sql(string $query, $params = []): AbstractResult
 	{
 		$query = Utils::trimQueryString($query);
-		$params = (array)$params;
+		$params = (array) $params;
 		//if postgres && has a different meaning than OR
 		if ($this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
 			$query = QueryBuilder::operatorsToStandardSyntax($query);
@@ -79,18 +80,19 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
-				$this->rollbackTransaction();
+				$this->rollback();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
-			return preg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->rowCount() > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			//return preg_match('/^update|^insert|^delete/i', $query) === 1 ? $sth->rowCount() > 0 : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			return new PdoResult($sth);
 		} catch (\PDOException $e) {
-			$this->rollbackTransaction();
+			$this->rollback();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null): AbstractResult
 	{
 		try {
 			$builder = new QueryBuilder;
@@ -99,25 +101,26 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
-				$this->rollbackTransaction();
+				$this->rollback();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
-			return self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			//return self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			return new PdoResult($sth);
 		} catch (\PDOException $e) {
-			$this->rollbackTransaction();
+			$this->rollback();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function insert(string $table, $params, bool $ignore = false)
+	public function insert(string $table, $params, bool $ignore = false): AbstractResult
 	{
-		$params = (array)$params;
+		$params = (array) $params;
 		try {
 			$keys_list = array_keys($params);
 			$keys = '`' . implode('`, `', $keys_list) . '`';
 			$values = ':' . implode(', :', $keys_list);
-			$this->beginTransaction();
+			//$this->rollback();
 			$driver = $this->getAttribute(self::ATTR_DRIVER_NAME);
 			$sth = null;
 			switch ($driver) {
@@ -131,29 +134,30 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 			if ($sth === null) {
 				throw new \Exception('Requested driver still not supported');
-			}elseif (!self::bindParams($params, $sth)) {
+			} elseif (!self::bindParams($params, $sth)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
-				$this->rollbackTransaction();
+				$this->rollback();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
-			$inserted_id = $this->lastInsertId();
-			$total_inserted = $sth->rowCount();
-			$this->commit();
+			$insertedId = $this->inTransaction() ? $this->lastInsertId() : null;
+			//$total_inserted = $sth->rowCount();
+			//$this->commit();
 
-			return $inserted_id !== '0' ? $inserted_id : $total_inserted > 0;
+			//return $inserted_id !== '0' ? $inserted_id : $total_inserted > 0;
+			return new PdoResult($sth, $insertedId);
 		} catch (\PDOException $e) {
-			$this->rollbackTransaction();
+			$this->rollback();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function update(string $table, $params, $where = null): bool
+	public function update(string $table, $params, $where = null): AbstractResult
 	{
 		$builder = new QueryBuilder;
-		$params = (array)$params;
+		$params = (array) $params;
 		if ($where !== null && !is_string($where)) {
 			throw new UnexpectedValueException('$where param must be of type string');
 		} elseif ($where !== null && $this->getAttribute(self::ATTR_DRIVER_NAME) !== 'oci') {
@@ -162,7 +166,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 		}
 
 		//TODO how to bind where clause?
-		
+
 		try {
 			$values = $builder->valuesListToSql($params);
 			$sth = $this->prepare("UPDATE `$table` SET $values" . ($where !== null ? " WHERE $where" : ''));
@@ -170,18 +174,19 @@ class Pdo extends \PDO implements IRelationalConnectable
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
-				$this->rollbackTransaction();
+				$this->rollback();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
-			return $sth->rowCount() > 0;
+			//return $sth->rowCount() > 0;
+			return new PdoResult($sth);
 		} catch (\PDOException $e) {
-			$this->rollbackTransaction();
+			$this->rollback();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function delete(string $table, $where = null, array $params = null): bool
+	public function delete(string $table, $where = null, array $params = null): AbstractResult
 	{
 		if ($where !== null && !is_string($where)) {
 			throw new UnexpectedValueException('$where param must be of type string');
@@ -192,22 +197,23 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 		try {
 			$sth = $this->prepare("DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
-			if (!self::bindParams($params, $sth)) {
+			if ($params !== null && !self::bindParams($params, $sth)) {
 				throw new UnexpectedValueException('Cannot bind parameters');
 			} elseif (!$sth->execute()) {
 				$error = $sth->errorInfo();
-				$this->rollbackTransaction();
+				$this->rollback();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
-			return $sth->rowCount() > 0;
+			//return $sth->rowCount() > 0;
+			return new PdoResult($sth);
 		} catch (\PDOException $e) {
-			$this->rollbackTransaction();
+			$this->rollback();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
+	public function procedure(string $name, array $inParams = [], array $outParams = [])
 	{
 		try {
 			$procedure_in_params = rtrim(array_reduce($inParams, function ($sum, $key) {
@@ -240,13 +246,13 @@ class Pdo extends \PDO implements IRelationalConnectable
 			self::bindOutParams($outParams, $sth, $outResult);
 			if (!$sth->execute()) {
 				$error = $sth->errorInfo();
-				$this->rollbackTransaction();
+				$this->rollback();
 				throw new QueryException("{$error[0]}: {$error[2]}" . ($this->_debugMode ? PHP_EOL . $sth->debugDumpParams() : ''), $error[0]);
 			}
 
-			return count($outParams) > 0 ? $outResult : self::fetch($sth, $fetchMode, $fetchModeParam, $fetchPropsLateParams);
+			return count($outParams) > 0 ? $outResult : new PdoResult($sth);
 		} catch (\PDOException $e) {
-			if ($this->inTransaction()) $this->rollback();
+			$this->rollBack();
 			throw new QueryException($e->getMessage(), $e->getCode(), $e);
 		}
 	}
@@ -273,7 +279,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 		if ($query === null) throw new \Exception('Requested driver still not supported');
 
 		return array_map(function ($table) use ($driver) {
-			switch($driver) {
+			switch ($driver) {
 				case 'mysql':
 					return array_values($table)[0];
 				case 'oci':
@@ -281,7 +287,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 				default:
 					throw new \Exception('Requested driver still not supported');
 			}
-		}, $this->sql($query));
+		}, $this->sql($query)->fetch());
 	}
 
 	public function showColumns($tables)
@@ -307,16 +313,16 @@ class Pdo extends \PDO implements IRelationalConnectable
 
 		$columns = [];
 		foreach ($tables as $table) {
-			$cur = $this->sql(str_replace('###name###', $table, $query));
+			$cur = $this->sql(str_replace('###name###', $table, $query))->fetch();
 			$columns[$table] = [];
-			foreach($cur as $column) {
+			foreach ($cur as $column) {
 				$column_name = null;
 				$column_data = null;
 
-				switch($driver) {
+				switch ($driver) {
 					case 'mysql':
 						$column_name = $column['Field'];
-						$column_data = [ 
+						$column_data = [
 							'type' => strtolower($column['Type']),
 							'nullable' => $column['Null'] === 'YES',
 							'default' => $column['Default']
@@ -324,26 +330,19 @@ class Pdo extends \PDO implements IRelationalConnectable
 						break;
 					case 'oci':
 						$column_name = $column['COLUMN_NAME'];
-						$column_data = [ 
+						$column_data = [
 							'type' => strtolower($column['DATA_TYPE']),
 							'nullable' => $column['NULLABLE'] === 'Y',
 							'default' => $column['DATA_DEFAULT']
 						];
 				}
 
-				if(!isset($column_name, $column_data)) throw new \Exception('Requested driver still not supported');
+				if (!isset($column_name, $column_data)) throw new \Exception('Requested driver still not supported');
 				$columns[$table][$column_name] = $column_data;
 			}
 		}
 
 		return $columns;
-	}
-
-	public static function fetch($sth, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array
-	{
-		return ($fetchMode === Connection::FETCH_COLUMN && is_int($fetchModeParam)) || ($fetchMode & Connection::FETCH_CLASS && is_string($fetchModeParam))
-			? $fetchMode & Connection::FETCH_PROPS_LATE ? $sth->fetchAll($fetchMode, $fetchModeParam, $fetchPropsLateParams) : $sth->fetchAll($fetchMode, $fetchModeParam)
-			: $sth->fetchAll($fetchMode);
 	}
 
 	public static function bindParams(array &$params, &$sth = null): bool
@@ -373,16 +372,19 @@ class Pdo extends \PDO implements IRelationalConnectable
 		}
 	}
 
-	public function beginTransaction(): bool {
-		return !$this->inTransaction() ? $this->beginTransaction() : false;
+	public function transaction(): bool
+	{
+		return !$this->inTransaction() ? parent::beginTransaction() : false;
 	}
 
-	public function commitTransaction(): bool {
-		return $this->inTransaction() ? $this->commit() : false;
+	public function commit(): bool
+	{
+		return $this->inTransaction() ? parent::commit() : false;
 	}
 
-	public function rollbackTransaction(): bool {
-		return $this->inTransaction() ? $this->rollback() : false;
+	public function rollback(): bool
+	{
+		return $this->inTransaction() ? $this->rollBack() : false;
 	}
 
 	/**
@@ -402,7 +404,7 @@ class Pdo extends \PDO implements IRelationalConnectable
 	private static function getOciString(array $params): string
 	{
 		$connect_data_name = $params['sid'] ? 'sid' : ($params['serviceName'] ? 'serviceName' : null);
-		if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");	
+		if ($connect_data_name === null) throw new BadMethodCallException("Missing paramters");
 		$connect_data_value = $params[$connect_data_name];
 		$tns = preg_replace("/\n\r|\n|\r|\n\r|\t|\s/", '', "(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = {$params['host']})(PORT = {$params['port']}))) (CONNECT_DATA = (" . strtoupper(preg_replace('/(?<!^)[A-Z]/', '_$0', $connect_data_name)) . ' = ' . $connect_data_value	. ")))");
 		return "oci:dbname={$tns};charset={$params['charset']}";

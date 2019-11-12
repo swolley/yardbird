@@ -12,9 +12,9 @@ interface IRelationalConnectable extends IConnectable
 	 */
 	static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void;
 
-	public function beginTransaction(): bool;
+	public function transaction(): bool;
 
-	public function commitTransaction(): bool;
+	public function commit(): bool;
 
-	public function rollbackTransaction(): bool;
+	public function rollback(): bool;
 }

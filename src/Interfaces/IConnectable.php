@@ -20,7 +20,9 @@ interface IConnectable extends ICrudable
 	 * @param	array		$fetchPropsLateParams	(optional) constructor params if fetch mode has FETCH_PROPS_LATE option
 	 * @return	array		fetched and parsed data
 	 */
-	static function fetch($sth, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+	//static function fetch($sth, int $fetchMode = self::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+
+	//static function count($sth): int;
 
 	/**
 	 * bind passed parameters for sql injection

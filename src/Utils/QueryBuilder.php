@@ -552,13 +552,14 @@ class QueryBuilder
 		$total_params = count($params);
 		$tot_question_placeholders = mb_substr_count($query, '?');
 		$colon_placeholders = [];
-		preg_match_all('/(:\w+)/i', $query, $colon_placeholders);
+		preg_match_all('/:\\w+/i', $query, $colon_placeholders);
 		$colon_placeholders = array_shift($colon_placeholders);
 		$tot_col_placeholders = count($colon_placeholders);
+		if ($tot_col_placeholders === 0 && $tot_question_placeholders === 0) return;
 		if ($tot_col_placeholders > 0 && $tot_question_placeholders > 0) throw new UnexpectedValueException('Possible incongruence in query placeholders');
-		if (($tot_col_placeholders === 0 && $tot_question_placeholders !== $total_params) || ($tot_question_placeholders === 0 && $tot_col_placeholders !== $total_params)) throw new BadMethodCallException('Number of params and placeholders must be the same');
+		if ($tot_question_placeholders !== $total_params && $tot_col_placeholders !== $total_params) throw new BadMethodCallException('Number of params and placeholders must be the same');
 
-		//changes colon placeholders found they are switched to question marks because of mysqli bind restruction
+		//switched found placeholders to question marks because of mysqli bind restriction
 		if ($tot_question_placeholders === 0) {
 			$reordered_params = [];
 			foreach ($colon_placeholders as $param) {
@@ -572,7 +573,6 @@ class QueryBuilder
 			}
 
 			$params = $reordered_params;
-			unset($reordered_params);
 		}
 	}
 

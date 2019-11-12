@@ -7,12 +7,9 @@ interface ICrudable
 	 * execute inline or complex queries query
 	 * @param 	string  		$query          			query text with placeholders
 	 * @param 	array|object  	$params         			assoc array with placeholder's name and relative values
-	 * @param 	int     		$fetchMode     				(optional) PDO fetch mode. default = associative array
-	 * @param	int|string		$fetchModeParam				(optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
-	 * @param	int|string		$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return	mixed										response array or error message
 	 */
-	function sql(string $query, $params = [], int $fetchMode = PDO::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []);
+	function sql(string $query, $params = []): AbstractResult;
 
 	/**
 	 * with sql drivers this is a very simple and limited SELECT query builder whit list of fields and AND-separated where clauses
@@ -21,12 +18,9 @@ interface ICrudable
 	 * @param  array 		$where  					string query part or assoc array with placeholder's name and relative values. Logical separator between elements will be AND
 	 * @param  array 		$join 						joins array
 	 * @param  array 		$orderBy					order by array
-	 * @param  int 			$fetchMode  				(optional) PDO fetch mode. default = associative array
-	 * @param  int|string	$fetchModeParam 			(optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
-	 * @param  int|string	$fetchModePropsLateParams	(optional) fetch mode param to class contructor
 	 * @return mixed	response array or error message
 	 */
-	function select(string $table, array $params = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array;
+	function select(string $table, array $params = [], array $where = [], array $join = [], array $orderBy = [], $limit = null): AbstractResult;
 
 	/**
 	 * execute insert query
@@ -35,7 +29,7 @@ interface ICrudable
 	 * @param   boolean 		$ignore		performes an 'insert ignore' query
 	 * @return  int|string|bool            	new row id if key is autoincremental or boolean
 	 */
-	function insert(string $table, $params, bool $ignore = false);
+	function insert(string $table, $params, bool $ignore = false): AbstractResult;
 
 	/**
 	 * execute update query. Where is required, no massive update permitted
@@ -44,7 +38,7 @@ interface ICrudable
 	 * @param   string|array  	$where      where condition (string for Relational Dbs, array for Mongo). no placeholders permitted
 	 * @return  bool	                   	correct query execution confirm as boolean or error message
 	 */
-	function update(string $table, $params, $where = null): bool;
+	function update(string $table, $params, $where = null): AbstractResult;
 
 	/**
 	 * execute delete query. Where is required, no massive delete permitted
@@ -53,17 +47,14 @@ interface ICrudable
 	 * @param   array   		$params		assoc array with placeholder's name and relative values for where condition
 	 * @return  bool						correct query execution confirm as boolean or error message
 	 */
-	function delete(string $table, $where = null, array $params): bool;
+	function delete(string $table, $where = null, array $params): AbstractResult;
 
 	/**
 	 * execute procedure call.
 	 * @param  string		$table          			procedure name
 	 * @param  array	  	$inParams       			array of input parameters
 	 * @param  array	  	$outParams      			array of output parameters
-	 * @param  int     		$fetchMode     				(optional) PDO fetch mode. default = associative array
-	 * @param	int|string	$fetchModeParam				(optional) fetch mode param (ex. integer for FETCH_COLUMN, strin for FETCH_CLASS)
-	 * @param	int|string	$fetchModePropsLateParams	(optional) fetch mode param to class contructor
-	 * @return mixed									response array or error message
+	 * @return mixed									AbstractResult, output params array or error message
 	 */
-	function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): ?array;
+	function procedure(string $name, array $inParams = [], array $outParams = []);
 }
