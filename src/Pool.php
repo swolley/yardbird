@@ -4,11 +4,10 @@ declare(strict_types=1);
 namespace Swolley\YardBird;
 
 use Swolley\YardBird\Interfaces\IConnectable;
-/*use Swolley\YardBird\Interfaces\ICrudable;*/
 use Swolley\YardBird\Utils\Utils;
 use Swolley\YardBird\Exceptions\ConnectionException;
 
-final class Pool /*extends ICrudable*//* implements \Countable*/
+final class Pool
 {
 	/** 
 	 * @var array $connections connections list

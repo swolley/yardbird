@@ -1,19 +1,18 @@
 <?php
 
-namespace Swolley\YardBird\Drivers;
+namespace Swolley\YardBird\Connections;
 
-use Swolley\YardBird\Utils\Utils;
 use Swolley\YardBird\Interfaces\IRelationalConnectable;
-use Swolley\YardBird\Interfaces\AbstractResult;
+use Swolley\YardBird\Utils\Utils;
+use Swolley\YardBird\Utils\QueryBuilder;
 use Swolley\YardBird\Exceptions\ConnectionException;
 use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
-use Swolley\YardBird\Utils\QueryBuilder;
+use Swolley\YardBird\Result;
 use Swolley\YardBird\Interfaces\TraitDatabase;
-use Swolley\YardBird\Results\OciResult;
 
-class Oci implements IRelationalConnectable
+class Oci8Connection implements IRelationalConnectable
 {
 	use TraitDatabase;
 	private $_inTransaction = false;
@@ -54,68 +53,68 @@ class Oci implements IRelationalConnectable
 		return $params;
 	}
 
-	public function sql(string $query, $params = []): AbstractResult
+	public function sql(string $query, $params = []): Result
 	{
 		$query = Utils::trimQueryString($query);
 		$params = (array) $params;
 		//TODO add the function developed for mysqli
-		$sth = oci_parse($this->_db, $query);
-		if (!self::bindParams($params, $sth)) {
+		$stmt = oci_parse($this->_db, $query);
+		if (!self::bindParams($params, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
-			$error = oci_error($sth);
+		} elseif (!oci_execute($stmt, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
+			$error = oci_error($stmt);
 			$this->rollback();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = new OciResult($sth);
+		$response = new Result($stmt, strtolower(explode(' ', $query)[0]));
 		if (!$this->_inTransaction) $this->commit();
-		oci_free_statement($sth);
+		oci_free_statement($stmt);
 		return $response;
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null): AbstractResult
+	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null): Result
 	{
 		$builder = new QueryBuilder;
-		$sth = oci_parse($this->_db, 'SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
-		if (!empty($where) && !self::bindParams($where, $sth)) {
+		$stmt = oci_parse($this->_db, 'SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
+		if (!empty($where) && !self::bindParams($where, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
-			$error = oci_error($sth);
+		} elseif (!oci_execute($stmt, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
+			$error = oci_error($stmt);
 			$this->rollback();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = new OciResult($sth);
+		$response = new Result($stmt, 'select');
 		if (!$this->_inTransaction) $this->commit();
-		oci_free_statement($sth);
+		oci_free_statement($stmt);
 		return $response;
 	}
 
-	public function insert(string $table, $params, bool $ignore = false): AbstractResult
+	public function insert(string $table, $params, bool $ignore = false): Result
 	{
 		$params = (array) $params;
 		$keys = implode(',', array_keys($params));
 		$values = ':' . implode(', :', array_keys($params));
-		$sth = oci_parse($this->_db, "BEGIN INSERT INTO `$table` ($keys) VALUES ($values)" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END; RETURNING RowId INTO :last_inserted_id');
+		$stmt = oci_parse($this->_db, "BEGIN INSERT INTO `$table` ($keys) VALUES ($values)" . ($ignore ? ' EXCEPTION WHEN dup_val_on_index THEN null' : '') . '; END; RETURNING RowId INTO :last_inserted_id');
 
-		if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
+		if (!self::bindParams($params, $stmt)) throw new UnexpectedValueException('Cannot bind parameters');
 
 		$inserted_id = null;
-		self::bindOutParams($sth, ":last_inserted_id", $inserted_id);
-		if (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
-			$error = oci_error($sth);
+		self::bindOutParams($stmt, ":last_inserted_id", $inserted_id);
+		if (!oci_execute($stmt, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
+			$error = oci_error($stmt);
 			$this->rollback();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = new OciResult($sth);
+		$response = new Result($stmt, 'insert');
 		if (!$this->_inTransaction) $this->commit();
-		oci_free_statement($sth);
+		oci_free_statement($stmt);
 		return $response;
 	}
 
-	public function update(string $table, $params, $where = null): AbstractResult
+	public function update(string $table, $params, $where = null): Result
 	{
 		$params = (array) $params;
 
@@ -123,37 +122,37 @@ class Oci implements IRelationalConnectable
 		//TODO how to bind where clause?
 		$values = QueryBuilder::valuesListToSql($params);
 
-		$sth = oci_parse($this->_db, "UPDATE `{$table}` SET {$values}" . ($where !== null ? " WHERE {$where}" : ''));
-		if (!self::bindParams($params, $sth)) {
+		$stmt = oci_parse($this->_db, "UPDATE `{$table}` SET {$values}" . ($where !== null ? " WHERE {$where}" : ''));
+		if (!self::bindParams($params, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
-			$error = oci_error($sth);
+		} elseif (!oci_execute($stmt, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
+			$error = oci_error($stmt);
 			$this->rollback();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = new OciResult($sth);
+		$response = new Result($stmt, 'update');
 		if (!$this->_inTransaction) $this->commit();
-		oci_free_statement($sth);
+		oci_free_statement($stmt);
 		return $response;
 	}
 
-	public function delete(string $table, $where = null, array $params = null): AbstractResult
+	public function delete(string $table, $where = null, array $params = null): Result
 	{
 		if ($where !== null && !is_string($where)) throw new UnexpectedValueException('$where param must be of type string');
 
-		$sth = oci_parse($this->_db, "DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
-		if (!self::bindParams($params, $sth)) {
+		$stmt = oci_parse($this->_db, "DELETE FROM `$table`" . ($where !== null ? " WHERE $where" : ''));
+		if (!self::bindParams($params, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
-			$error = oci_error($sth);
+		} elseif (!oci_execute($stmt, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
+			$error = oci_error($stmt);
 			$this->rollback();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
-		$response = new OciResult($sth);
+		$response = new Result($stmt, 'delete');
 		if (!$this->_inTransaction) $this->commit();
-		oci_free_statement($sth);
+		oci_free_statement($stmt);
 		return $response;
 	}
 
@@ -166,7 +165,7 @@ class Oci implements IRelationalConnectable
 			return $sum .= ":$value, ";
 		}, ''), ', ');
 
-		$sth = oci_parse(
+		$stmt = oci_parse(
 			$this->_db,
 			"BEGIN $name("
 				. (count($inParams) > 0 ? $procedure_in_params : '')	//in params
@@ -175,21 +174,21 @@ class Oci implements IRelationalConnectable
 				. "); END;"
 		);
 
-		if (!self::bindParams($inParams, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
+		if (!self::bindParams($inParams, $stmt)) throw new UnexpectedValueException('Cannot bind parameters');
 
 		$outResult = [];
-		self::bindOutParams($sth, $outParams, $outResult);
-		if (!oci_execute($sth, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
-			$error = oci_error($sth);
+		self::bindOutParams($stmt, $outParams, $outResult);
+		if (!oci_execute($stmt, $this->_inTransaction ? OCI_NO_AUTO_COMMIT : OCI_COMMIT_ON_SUCCESS)) {
+			$error = oci_error($stmt);
 			$this->rollback();
 			throw new QueryException($error['message'], $error['code']);
 		}
 
 		if (count($outParams) > 0) return $outResult;
-		$response = new OciResult($sth);
+		$response = new Result($stmt, 'procedure');
 
 		if (!$this->_inTransaction) $this->commit();
-		oci_free_statement($sth);
+		oci_free_statement($stmt);
 		return $response;
 	}
 
@@ -228,11 +227,11 @@ class Oci implements IRelationalConnectable
 		return $columns;
 	}
 
-	public static function bindParams(array &$params, &$sth = null): bool
+	public static function bindParams(array &$params, &$stmt = null): bool
 	{
 		//TODO to test if query cant be read from statement
 		foreach ($params as $key => $value) {
-			if (!oci_bind_by_name($sth, ":$key", $value)) {
+			if (!oci_bind_by_name($stmt, ":$key", $value)) {
 				return false;
 			}
 		}
@@ -240,16 +239,16 @@ class Oci implements IRelationalConnectable
 		return true;
 	}
 
-	public static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void
+	public static function bindOutParams(&$params, &$stmt, &$outResult, int $maxLength = 40000): void
 	{
 		if (is_array($params) && is_array($outResult)) {
 			foreach ($params as $value) {
 				$outResult[$value] = null;
-				if (!oci_bind_by_name($sth, ":$value", $outResult[$value], $maxLength)) throw new UnexpectedValueException('Cannot bind parameter value');
+				if (!oci_bind_by_name($stmt, ":$value", $outResult[$value], $maxLength)) throw new UnexpectedValueException('Cannot bind parameter value');
 			}
 		} elseif (is_string($params)) {
 			$outResult = null;
-			if (!oci_bind_by_name($sth, ":$params", $outResult, $maxLength)) throw new \Exception('Cannot bind parameter value');
+			if (!oci_bind_by_name($stmt, ":$params", $outResult, $maxLength)) throw new \Exception('Cannot bind parameter value');
 		} else {
 			throw new BadMethodCallException('$params and $outResult must have same type');
 		}

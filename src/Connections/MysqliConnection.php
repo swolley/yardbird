@@ -1,20 +1,18 @@
 <?php
 
-namespace Swolley\YardBird\Drivers;
+namespace Swolley\YardBird\Connections;
 
-use Swolley\YardBird\Connection;
 use Swolley\YardBird\Interfaces\IRelationalConnectable;
-use Swolley\YardBird\Interfaces\AbstractResult;
 use Swolley\YardBird\Utils\Utils;
+use Swolley\YardBird\Utils\QueryBuilder;
 use Swolley\YardBird\Exceptions\ConnectionException;
 use Swolley\YardBird\Exceptions\QueryException;
 use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
-use Swolley\YardBird\Utils\QueryBuilder;
+use Swolley\YardBird\Result;
 use Swolley\YardBird\Interfaces\TraitDatabase;
-use Swolley\YardBird\Results\MysqliResult;
 
-class Mysqli extends \mysqli implements IRelationalConnectable
+class MysqliConnection extends \mysqli implements IRelationalConnectable
 {
 	use TraitDatabase;
 	private $_inTransaction = false;
@@ -51,7 +49,7 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 		return $params;
 	}
 
-	public function sql(string $query, $params = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): AbstractResult
+	public function sql(string $query, $params = []): Result
 	{
 		$builder = new QueryBuilder;
 		$query = Utils::trimQueryString($query);
@@ -59,57 +57,62 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 		$params = (array) $params;
 		$builder->colonsToQuestionMarksPlaceholders($query, $params);
 
-		$sth = $this->prepare($query);
-		if (!$sth) {
+		$stmt = $this->prepare($query);
+		if (!$stmt) {
 			throw new QueryException("Cannot prepare query. Check the syntax.");
-		} elseif (!self::bindParams($params, $sth)) {
+		} elseif (!self::bindParams($params, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!$sth->execute()) {
+		} elseif (!$stmt->execute()) {
 			$this->rollback();
 			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		}
 
-		$result = new MysqliResult($sth);
-		$sth->close();
+		$query_type = strtolower(explode(' ', $query)[0]);
+		if('select') {
+			$stmt->store_result();
+		}
+		$result = new Result($stmt, $query_type);
+		$stmt->close();
 		return $result;
 	}
 
-	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null, int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): AbstractResult
+	public function select(string $table, array $fields = [], array $where = [], array $join = [], array $orderBy = [], $limit = null): Result
 	{
 		$builder = new QueryBuilder;
-		$sth = $this->prepare('SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where, true) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
-		if (!$sth) {
+		$stmt = $this->prepare('SELECT ' . $builder->fieldsToSql($fields) . " FROM `$table` " . $builder->joinsToSql($join) . ' ' . $builder->whereToSql($where, true) . ' ' . $builder->orderByToSql($orderBy) . ' ' . $builder->limitToSql($limit));
+		if (!$stmt) {
 			throw new QueryException("Cannot prepare query. Check the syntax.");
-		} elseif (!empty($where) && !self::bindParams($where, $sth)) {
+		} elseif (!empty($where) && !self::bindParams($where, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!$sth->execute()) {
+		} elseif (!$stmt->execute()) {
 			$this->rollback();
 			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		}
 
-		return new MysqliResult($sth, 'select');
+		$stmt->store_result();
+		return new Result($stmt, 'select');
 	}
 
-	public function insert(string $table, $params, bool $ignore = false): AbstractResult
+	public function insert(string $table, $params, bool $ignore = false): Result
 	{
 		$params = (array) $params;
 		$keys_list = array_keys($params);
 		$keys = '`' . implode('`, `', $keys_list) . '`';
 		$values = rtrim(str_repeat("?, ", count($keys_list)), ', ');
-		$sth = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `$table` ($keys) VALUES ($values)");
+		$stmt = $this->prepare('INSERT ' . ($ignore ? 'IGNORE ' : '') . "INTO `$table` ($keys) VALUES ($values)");
 
-		if (!$sth) throw new QueryException("Cannot prepare query. Check the syntax.");
-		if (!self::bindParams($params, $sth)) throw new UnexpectedValueException('Cannot bind parameters');
-		if (!$sth->execute()) {
+		if (!$stmt) throw new QueryException("Cannot prepare query. Check the syntax.");
+		if (!self::bindParams($params, $stmt)) throw new UnexpectedValueException('Cannot bind parameters');
+		if (!$stmt->execute()) {
 			$this->rollback();
 			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		}
 
-		$inserted_id = $sth->insert_id;
-		return new MysqliResult($sth, 'insert', $inserted_id);
+		$inserted_id = $stmt->insert_id;
+		return new Result($stmt, 'insert', $inserted_id);
 	}
 
-	public function update(string $table, $params, $where = null): AbstractResult
+	public function update(string $table, $params, $where = null): Result
 	{
 		$builder = new QueryBuilder;
 		$params = (array) $params;
@@ -124,20 +127,20 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 			$where = '';
 		}
 
-		$sth = $this->prepare("UPDATE `{$table}` SET {$values} {$where}");
-		if (!$sth) {
+		$stmt = $this->prepare("UPDATE `{$table}` SET {$values} {$where}");
+		if (!$stmt) {
 			throw new QueryException("Cannot prepare query. Check the syntax. Error: [" . $this->errno . '] ' . $this->error);
-		} elseif (!self::bindParams($params, $sth)) {
+		} elseif (!self::bindParams($params, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!$sth->execute()) {
+		} elseif (!$stmt->execute()) {
 			$this->rollback();
 			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		}
 
-		return new MysqliResult($sth, 'update');
+		return new Result($stmt, 'update');
 	}
 
-	public function delete(string $table, $where = null, array $params = null): AbstractResult
+	public function delete(string $table, $where = null, array $params = null): Result
 	{
 		if ($where !== null) {
 			$builder = new QueryBuilder;
@@ -145,20 +148,20 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 			$builder->colonsToQuestionMarksPlaceholders($where, $params);
 		}
 
-		$sth = $this->prepare("DELETE FROM {$table} {$where}");
-		if (!$sth) {
+		$stmt = $this->prepare("DELETE FROM {$table} {$where}");
+		if (!$stmt) {
 			throw new QueryException("Cannot prepare query. Check the syntax.");
-		} elseif (!self::bindParams($params, $sth)) {
+		} elseif (!self::bindParams($params, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!$sth->execute()) {
+		} elseif (!$stmt->execute()) {
 			$this->rollback();
 			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		}
 
-		return new MysqliResult($sth, 'delete');
+		return new Result($stmt, 'delete');
 	}
 
-	public function procedure(string $name, array $inParams = [], array $outParams = [], int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = [])
+	public function procedure(string $name, array $inParams = [], array $outParams = [])
 	{
 
 		$procedure_in_params = rtrim(array_reduce($inParams, function ($sum) {
@@ -168,21 +171,21 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 			return $sum .= ":$value, ";
 		}, ''), ', ');
 		$parameters_string = $procedure_in_params . (strlen($procedure_in_params) > 0 && strlen($procedure_out_params) > 0 ? ', ' : '') . $procedure_out_params;
-		$sth = $this->prepare("CALL $name($parameters_string);");
+		$stmt = $this->prepare("CALL $name($parameters_string);");
 
-		if (!$sth) {
+		if (!$stmt) {
 			throw new QueryException("Cannot prepare query. Check the syntax.");
-		} elseif (!self::bindParams($inParams, $sth)) {
+		} elseif (!self::bindParams($inParams, $stmt)) {
 			throw new UnexpectedValueException('Cannot bind parameters');
-		} elseif (!$sth->execute()) {
+		} elseif (!$stmt->execute()) {
 			$this->rollback();
 			throw new QueryException("{$this->errno}: {$this->error}", $this->errno);
 		}
 
 		$outResult = [];
-		self::bindOutParams($outParams, $sth, $outResult);
+		self::bindOutParams($outParams, $stmt, $outResult);
 
-		return count($outParams) > 0 ? $outResult : new MysqliResult($sth);
+		return count($outParams) > 0 ? $outResult : new Result($stmt, 'procedure');
 	}
 
 	public function showTables(): array
@@ -219,24 +222,24 @@ class Mysqli extends \mysqli implements IRelationalConnectable
 		return $columns;
 	}
 
-	public static function bindParams(array &$params, &$sth = null): bool
+	public static function bindParams(array &$params, &$stmt = null): bool
 	{
 		$params_values = array_values($params);
-		return $sth->bind_param(array_reduce($params, function ($total, $value) {
+		return count($params_values) > 0 ? $stmt->bind_param(array_reduce($params, function ($total, $value) {
 			return $total .= is_bool($value) || is_int($value) ? 'i' : (is_float($value) || is_double($value) ? 'd' : 's');
-		}, ''), ...$params_values);
+		}, ''), ...$params_values) : true;
 	}
 
-	public static function bindOutParams(&$params, &$sth, &$outResult, int $maxLength = 40000): void
+	public static function bindOutParams(&$params, &$stmt, &$outResult, int $maxLength = 40000): void
 	{
 		if (is_array($params) && is_array($outResult)) {
 			foreach ($params as $value) {
 				$outResult[$value] = null;
 			}
-			$sth->bind_result(...$outResult);
+			$stmt->bind_result(...$outResult);
 		} elseif (is_string($params)) {
 			$outResult = null;
-			$sth->bind_result($outResult);
+			$stmt->bind_result($outResult);
 		} else {
 			throw new BadMethodCallException('$params and $outResult must have same type');
 		}

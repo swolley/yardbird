@@ -10,9 +10,9 @@ class MongoResult extends AbstractResult
 {
 	private $_queryType;
 
-	public function __construct(Cursor $sth, string $queryType = null,  int $insertedId = null)
+	public function __construct(Cursor $stmt, string $queryType = null,  int $insertedId = null)
 	{
-		parent::__construct($sth, $insertedId);
+		parent::__construct($stmt, $insertedId);
 		$this->_queryType = $queryType;
 	}
 
@@ -27,8 +27,7 @@ class MongoResult extends AbstractResult
 				$this->_sth->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);
 				break;
 			case Connection::FETCH_CLASS:
-				$reflection = new \ReflectionClass($fetchModeParam);
-				if ($reflection->isSubclassOf(BSONDocument::class)) {
+				if (is_a($fetchModeParam, BSONDocument::class, true)) {
 					$this->_sth->setTypeMap(['root' => $fetchModeParam, 'document' => $fetchModeParam, 'array' => 'array']);
 				} else {
 					$this->_sth->setTypeMap(['root' => 'object', 'document' => 'object', 'array' => 'array']);

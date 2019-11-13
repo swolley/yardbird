@@ -15,24 +15,35 @@ final class Connection
 	const FETCH_COLUMN = 7;
 	const FETCH_CLASS = 8;
 	const FETCH_PROPS_LATE = 1048576;
+	
+	private $_driverConnection;
 
 	/**
 	 * @param	array	$connectionParameters	connection parameters
 	 * @param	boolean	$debugMode				debug mode
 	 * @return	IConnectable	driver superclass
 	 */
-	public function __invoke(array $connectionParameters, bool $debugMode = false): IConnectable
+	public function __construct(array $connectionParameters, bool $debugMode = false)
 	{
 		if (!isset($connectionParameters, $connectionParameters['driver']) || empty($connectionParameters)) throw new BadMethodCallException("Connection parameters are required");
 		try {
 			$found = self::checkExtension($connectionParameters['driver']);
 			if($found === null) throw new \Exception();
-			$className = 'Swolley\YardBird\Drivers\\' . ucfirst($found);
-			return new $className($connectionParameters, $debugMode);
+			$className = 'Swolley\YardBird\Connections\\' . ucfirst($found) . 'Connection';
+			$this->_driverConnection = new $className($connectionParameters, $debugMode);
 		} catch (ConnectionException $e) {
 			throw $e;
 		} catch (\Exception $e) {
 			throw new \Exception('No driver found or extension not supported with current php configuration');
+		}
+	}
+
+	public function __call($method, $params)
+	{
+		if(method_exists($this->_driverConnection, $method)) {
+			return $this->_driverConnection->$method(...$params);
+		} else {
+			throw new BadMethodCallException('Method $method not found');
 		}
 	}
 
@@ -48,7 +59,7 @@ final class Connection
 		} elseif(in_array($driver, $pdo_drivers)) {
 			return 'pdo';
 		} elseif(($driver === 'oci' || $driver === 'oci8') && extension_loaded('oci8')) {
-			return 'oci';
+			return 'oci8';
 		} elseif(extension_loaded('mysqli') && ($driver === 'mysql' || $driver === 'mysqli')) {
 			return 'mysqli';
 		}

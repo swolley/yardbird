@@ -6,9 +6,9 @@ use Swolley\YardBird\Interfaces\AbstractResult;
 
 class OciResult extends AbstractResult
 {
-	public function __construct(resource $sth, int $insertedId = null)
+	public function __construct(resource $stmt, int $insertedId = null)
 	{
-		parent::__construct($sth, $insertedId);
+		parent::__construct($stmt, $insertedId);
 	}
 
 	public function fetch(int $fetchMode = Connection::FETCH_ASSOC, $fetchModeParam = 0, array $fetchPropsLateParams = []): array

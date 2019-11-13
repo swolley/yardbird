@@ -6,9 +6,9 @@ use Swolley\YardBird\Interfaces\AbstractResult;
 
 class MysqliResult extends AbstractResult
 {
-	public function __construct(\mysqli_stmt $sth, string $queryType = null, int $insertedId = null)
+	public function __construct(\mysqli_stmt $stmt, string $queryType = null, int $insertedId = null)
 	{
-		parent::__construct($sth, $insertedId);
+		parent::__construct($stmt, $insertedId);
 		$this->_queryType = $queryType;
 	}
 

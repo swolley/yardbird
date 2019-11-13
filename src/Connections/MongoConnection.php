@@ -1,9 +1,8 @@
 <?php
 
-namespace Swolley\YardBird\Drivers;
+namespace Swolley\YardBird\Connections;
 
 use Swolley\YardBird\Interfaces\IConnectable;
-use Swolley\YardBird\Interfaces\AbstractResult;
 use Swolley\YardBird\Utils\QueryBuilder;
 use Swolley\YardBird\Exceptions\ConnectionException;
 use Swolley\YardBird\Exceptions\QueryException;
@@ -11,16 +10,16 @@ use Swolley\YardBird\Exceptions\BadMethodCallException;
 use Swolley\YardBird\Exceptions\UnexpectedValueException;
 use Swolley\YardBird\Exceptions\NotImplementedException;
 use Swolley\YardBird\Interfaces\TraitDatabase;
-use	MongoDB\Client as MongoDB;
+use	MongoDB\Client as MongoClient;
 use MongoDB\Driver\Command as MongoCmd;
-use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\Driver\Exception as MongoException;
-use MongoDB\Model\CollectionInfo;
+use MongoDB\BSON\Javascript as MongoJs;
 use MongoDB\BSON\Regex;
 use MongoDB\BSON\ObjectID;
-use Swolley\YardBird\Results\MongoResult;
+use MongoDB\Model\CollectionInfo;
+use Swolley\YardBird\Result;
 
-class Mongo extends MongoDB implements IConnectable
+class MongoConnection extends MongoClient implements IConnectable
 {
 	use TraitDatabase;
 
@@ -53,7 +52,7 @@ class Mongo extends MongoDB implements IConnectable
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	public function sql(string $query, $params = []): AbstractResult
+	public function sql(string $query, $params = []): Result
 	{
 		$params = (array) $params;
 		$query = (new QueryBuilder)->sqlToMongo($query, $params);
@@ -75,62 +74,62 @@ class Mongo extends MongoDB implements IConnectable
 		throw new UnexpectedValueException('Unrecognized query');
 	}
 
-	public function command(array $options = []): AbstractResult
+	public function command(array $options = []): Result
 	{
 		//FIXME also options needs to be binded
 		try {
-			$sth = $this->db->command($options);
-			return new MongoResult($sth, 'command');
+			$stmt = $this->db->command($options);
+			return new Result($stmt, 'command');
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	public function select(string $collection, array $filter = [], $options = [], array $aggregate = [], array $orderBy = [], $limit = null): AbstractResult
+	public function select(string $collection, array $filter = [], $options = [], array $aggregate = [], array $orderBy = [], $limit = null): Result
 	{
 		try {
 			self::bindParams($filter);
-			$sth = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
+			$stmt = $this->{$this->_dbName}->{$collection}->find($filter, $options ?? []);
 			if (!empty($aggregate)) {
-				$sth->aggregate($aggregate);
+				$stmt->aggregate($aggregate);
 			}
 			//ORDER BY
 			if (!empty($orderBy)) {
 				foreach ($orderBy as $value) {
 					if ($value !== 1 && $value !== -1) throw new UnexpectedValueException("Unexpected order value. Use 1 for ASC, -1 for DESC");
 				}
-				$sth->sort($orderBy);
+				$stmt->sort($orderBy);
 			}
 			//LIMIT
 			if ($limit !== null) {
 				if (is_integer($limit)) {
-					$sth->limit($limit);
+					$stmt->limit($limit);
 				} elseif (is_array($limit) && count($limit) === 2) {
-					$sth->limit($limit[1])->skip($limit[0]);
+					$stmt->limit($limit[1])->skip($limit[0]);
 				} else {
 					throw new UnexpectedValueException("Unexpected limit value. Can be integer or array of integers");
 				}
 			}
 
-			return new MongoResult($sth, 'select');
+			return new Result($stmt, 'select');
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	public function insert(string $collection, $params, bool $ignore = false): AbstractResult
+	public function insert(string $collection, $params, bool $ignore = false): Result
 	{
 		$params = (array) $params;
 		try {
 			self::bindParams($params);
 			$response = $this->{$this->_dbName}->{$collection}->insertOne($params, ['ordered' => !$ignore]);
-			return new MongoResult($response, 'insert', $response->getInsertedId()->__toString());
+			return new Result($response, 'insert', $response->getInsertedId()->__toString());
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	public function update(string $collection, $params, $where = null): AbstractResult
+	public function update(string $collection, $params, $where = null): Result
 	{
 		$where = $where ?? [];
 		if (!is_array($where)) throw new UnexpectedValueException('$where param must be of type array');
@@ -140,13 +139,13 @@ class Mongo extends MongoDB implements IConnectable
 			self::bindParams($params);
 			self::bindParams($where);
 			$response = $this->{$this->_dbName}->{$collection}->updateMany($where, ['$set' => $params], ['upsert' => FALSE]);
-			return new MongoResult($response, 'update');
+			return new Result($response, 'update');
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
 	}
 
-	public function delete(string $collection, $where = null, array $params = null): AbstractResult
+	public function delete(string $collection, $where = null, array $params = null): Result
 	{
 		$where = $where ?? [];
 		if (!is_array($where)) throw new UnexpectedValueException('$where param must be of type array');
@@ -154,7 +153,7 @@ class Mongo extends MongoDB implements IConnectable
 		try {
 			self::bindParams($where);
 			$response = $this->{$this->_dbName}->{$collection}->deleteMany($where);
-			return new MongoResult($response, 'delete');
+			return new Result($response, 'delete');
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -166,8 +165,8 @@ class Mongo extends MongoDB implements IConnectable
 			self::bindParams($inParams);
 			$jscode = new MongoJs('return db.eval("return ' . $name . '(' . implode(array_values($inParams)) . ');');
 			$command = new MongoCmd(['eval' => $jscode]);
-			$sth = $this->getManager()->executeCommand($this->_dbName, $command);
-			return new MongoResult($sth, 'procedure');
+			$stmt = $this->getManager()->executeCommand($this->_dbName, $command);
+			return new Result($stmt, 'procedure');
 		} catch (MongoException $e) {
 			throw new QueryException($e->getMessage(), $e->getCode());
 		}
@@ -185,7 +184,7 @@ class Mongo extends MongoDB implements IConnectable
 		throw new NotImplementedException('MongoDB is schemaless and is not possible to get a unique data structure');
 	}
 
-	public static function bindParams(array &$params, &$sth = null): bool
+	public static function bindParams(array &$params, &$stmt = null): bool
 	{
 		foreach ($params as $key => &$value) {
 			$varType = is_bool($value) ? FILTER_VALIDATE_BOOLEAN : (is_int($value) ? FILTER_VALIDATE_INT : (is_float($value) ? FILTER_VALIDATE_FLOAT : FILTER_DEFAULT));

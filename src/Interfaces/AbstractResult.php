@@ -7,9 +7,9 @@ abstract class AbstractResult {
 	protected $_sth;
 	protected $_insertedId;
 
-	public function __construct($sth, int $insertedId = null)
+	public function __construct($stmt, int $insertedId = null)
 	{
-		$this->_sth = $sth;
+		$this->_sth = $stmt;
 		$this->_insertedId = $insertedId;
 	}
 
