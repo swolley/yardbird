@@ -32,7 +32,7 @@ abstract class AbstractResult {
 	 * if in transaction new inserted id
 	 * @return	int|null	last inserted autoincrement id
 	 */
-	public function insertId()
+	public function insertedId()
 	{
 		return $this->_insertedId;
 	}
