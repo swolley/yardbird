@@ -26,6 +26,9 @@ final class Result
 		}
 	}
 
+	/**
+	 * calls wrapped Result class's methods
+	 */
 	public function __call($method, $params)
 	{
 		if(method_exists($this->_driverResult, $method)) {

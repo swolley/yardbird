@@ -153,7 +153,7 @@ Result::count(): int;
  * get last inserted id if table has an autoincrement primary key
  * @return	int|null	last inserted id
  */
-Result::insertedId(): int;
+Result::insertedId();
 ```
 ### Connection pool
 Pools can organize all connections in a single object

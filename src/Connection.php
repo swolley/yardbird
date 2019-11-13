@@ -21,7 +21,6 @@ final class Connection
 	/**
 	 * @param	array	$connectionParameters	connection parameters
 	 * @param	boolean	$debugMode				debug mode
-	 * @return	IConnectable	driver superclass
 	 */
 	public function __construct(array $connectionParameters, bool $debugMode = false)
 	{
@@ -38,6 +37,9 @@ final class Connection
 		}
 	}
 
+	/**
+	 * calls wrapped connection class's methods
+	 */
 	public function __call($method, $params)
 	{
 		if(method_exists($this->_driverConnection, $method)) {
