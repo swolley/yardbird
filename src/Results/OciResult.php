@@ -15,8 +15,8 @@ class OciResult extends AbstractResult
 	{
 		$response = [];
 		if ($fetchMode === Connection::FETCH_COLUMN && is_int($fetchModeParam)) {
-			while ($row = oci_fetch_row($this->_sth)[$fetchModeParam] !== false) {
-				array_push($response, $row);
+			while ($row = oci_fetch_row($this->_sth) !== false) {
+				array_push($response, $row[$fetchModeParam]);
 			}
 		} elseif ($fetchMode & Connection::FETCH_CLASS && is_string($fetchModeParam)) {
 			while ($row = oci_fetch_assoc($this->_sth) !== false) {
