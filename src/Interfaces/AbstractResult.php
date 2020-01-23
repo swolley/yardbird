@@ -7,9 +7,9 @@ abstract class AbstractResult {
 	protected $_sth;
 	protected $_insertedId;
 
-	public function __construct($sth, int $insertedId = null)
+	public function __construct($stmt, int $insertedId = null)
 	{
-		$this->_sth = $sth;
+		$this->_sth = $stmt;
 		$this->_insertedId = $insertedId;
 	}
 
@@ -37,6 +37,10 @@ abstract class AbstractResult {
 		return $this->_insertedId;
 	}
 
+	/**
+	 * get last inserted id if table has an autoincrement primary key
+	 * @return	int|null	last inserted id
+	 */
 	public function ok(): bool
 	{
 		return $this->count() > 0;

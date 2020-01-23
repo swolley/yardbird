@@ -1,6 +1,8 @@
 <?php
 namespace Swolley\YardBird\Interfaces;
 
+use Swolley\YardBird\Result;
+
 interface ICrudable
 {
 	/**
@@ -9,7 +11,7 @@ interface ICrudable
 	 * @param 	array|object  	$params         			assoc array with placeholder's name and relative values
 	 * @return	mixed										response array or error message
 	 */
-	function sql(string $query, $params = []): AbstractResult;
+	function sql(string $query, $params = []): Result;
 
 	/**
 	 * with sql drivers this is a very simple and limited SELECT query builder whit list of fields and AND-separated where clauses
@@ -20,7 +22,7 @@ interface ICrudable
 	 * @param  array 		$orderBy					order by array
 	 * @return mixed	response array or error message
 	 */
-	function select(string $table, array $params = [], array $where = [], array $join = [], array $orderBy = [], $limit = null): AbstractResult;
+	function select(string $table, array $params = [], array $where = [], array $join = [], array $orderBy = [], $limit = null): Result;
 
 	/**
 	 * execute insert query
@@ -29,7 +31,7 @@ interface ICrudable
 	 * @param   boolean 		$ignore		performes an 'insert ignore' query
 	 * @return  int|string|bool            	new row id if key is autoincremental or boolean
 	 */
-	function insert(string $table, $params, bool $ignore = false): AbstractResult;
+	function insert(string $table, $params, bool $ignore = false): Result;
 
 	/**
 	 * execute update query. Where is required, no massive update permitted
@@ -38,7 +40,7 @@ interface ICrudable
 	 * @param   string|array  	$where      where condition (string for Relational Dbs, array for Mongo). no placeholders permitted
 	 * @return  bool	                   	correct query execution confirm as boolean or error message
 	 */
-	function update(string $table, $params, $where = null): AbstractResult;
+	function update(string $table, $params, $where = null): Result;
 
 	/**
 	 * execute delete query. Where is required, no massive delete permitted
@@ -47,7 +49,7 @@ interface ICrudable
 	 * @param   array   		$params		assoc array with placeholder's name and relative values for where condition
 	 * @return  bool						correct query execution confirm as boolean or error message
 	 */
-	function delete(string $table, $where = null, array $params): AbstractResult;
+	function delete(string $table, $where = null, array $params): Result;
 
 	/**
 	 * execute procedure call.
