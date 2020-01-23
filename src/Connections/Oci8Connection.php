@@ -231,7 +231,7 @@ class Oci8Connection implements IRelationalConnectable
 	{
 		//TODO to test if query cant be read from statement
 		foreach ($params as $key => $value) {
-			if (!oci_bind_by_name($stmt, ":$key", $value)) {
+			if (!oci_bind_by_name($stmt, ":$key", (is_int($value) ? SQLT_INT : (is_bool($value) ? SQLT_BOL : SQLT_CHR)))) {
 				return false;
 			}
 		}
